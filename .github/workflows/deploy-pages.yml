@@ -11,8 +11,8 @@ on:
   workflow_dispatch:
 
 env:
-  # "/" for custom domain (sumithsb.com). Use "/personal_portfolio/" for github.io only.
-  BASE_HREF: "/"
+  # "/personal_portfolio/" for github.io. Change to "/" when using custom domain (sumithsb.com).
+  BASE_HREF: "/personal_portfolio/"
 
 jobs:
   build-and-deploy:
