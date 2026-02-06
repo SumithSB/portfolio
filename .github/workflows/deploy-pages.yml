@@ -36,6 +36,9 @@ jobs:
       - name: Build web
         run: flutter build web --release --base-href "${{ env.BASE_HREF }}"
 
+      - name: Remove CNAME so github.io is not redirected to custom domain
+        run: rm -f build/web/CNAME
+
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
