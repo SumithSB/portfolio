@@ -1,7 +1,6 @@
-# Build Flutter web and push to gh-pages branch. GitHub Pages serves from that branch.
+# Build Flutter web and push to "pages" branch. GitHub Pages serves from that branch.
 # Project URL: https://sumithsb.github.io/personal_portfolio/
-# In Settings → Pages set: Source = "Deploy from a branch", Branch = gh-pages, Folder = / (root).
-# Custom domain (sumithsb.com): set BASE_HREF to "/" below, then add domain in Settings → Pages.
+# Settings → Pages: Source = "Deploy from a branch", Branch = pages, Folder = / (root).
 
 name: Deploy to GitHub Pages
 
@@ -11,7 +10,6 @@ on:
   workflow_dispatch:
 
 env:
-  # Use "/personal_portfolio/" for github.io. Use "/" only when using custom domain.
   BASE_HREF: "/personal_portfolio/"
 
 jobs:
@@ -36,12 +34,10 @@ jobs:
       - name: Build web
         run: flutter build web --release --base-href "${{ env.BASE_HREF }}"
 
-      - name: Remove CNAME so github.io is not redirected to custom domain
-        run: rm -f build/web/CNAME
-
-      - name: Deploy to gh-pages
+      - name: Deploy to pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: build/web
+          publish_branch: pages
           force_orphan: true
