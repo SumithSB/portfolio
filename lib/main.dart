@@ -12,7 +12,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Sumith Bhandari - AI Engineer & Developer',
+      title: 'Sumith Bhandari | Software Engineer | Cloud, AI & Security',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       home: const PortfolioScreen(),

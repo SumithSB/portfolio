@@ -8,6 +8,9 @@ class AppTheme {
       brightness: Brightness.dark,
       scaffoldBackgroundColor: AppColors.primaryBackground,
       primaryColor: AppColors.primaryAccent,
+      focusColor: AppColors.primaryAccent,
+      hoverColor: AppColors.primaryAccent.withValues(alpha: 0.08),
+      splashColor: AppColors.primaryAccent.withValues(alpha: 0.2),
 
       // Text theme
       textTheme: TextTheme(
@@ -85,6 +88,13 @@ class AppTheme {
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
+        ).copyWith(
+          overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+            if (states.contains(WidgetState.focused)) {
+              return AppColors.primaryAccent.withValues(alpha: 0.25);
+            }
+            return null;
+          }),
         ),
       ),
 

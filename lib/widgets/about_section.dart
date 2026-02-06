@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../constants/app_colors.dart';
+import '../constants/layout_constants.dart';
 
 class AboutSection extends StatelessWidget {
   const AboutSection({super.key});
@@ -8,24 +10,29 @@ class AboutSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 768;
-    final isTablet = screenWidth >= 768 && screenWidth < 1024;
+    final isMobile = LayoutConstants.isMobile(screenWidth);
+    final isTablet = LayoutConstants.isTablet(screenWidth);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final horizontalPadding = LayoutConstants.horizontalPadding(screenWidth);
+    final verticalPadding = LayoutConstants.verticalPadding(screenWidth);
 
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 20 : (isTablet ? 60 : 100),
-        vertical: isMobile ? 60 : 100,
+        horizontal: horizontalPadding,
+        vertical: verticalPadding,
       ),
-      color: AppColors.secondaryBackground,
+      color:
+          isDark
+              ? AppColors.darkSecondaryBackground
+              : AppColors.lightSecondaryBackground,
       child: Column(
         children: [
-          // Section header
           Text(
             '<ABOUT/>',
             style: GoogleFonts.jetBrainsMono(
               fontSize: isMobile ? 12 : 14,
-              color: AppColors.textCode,
+              color: isDark ? AppColors.darkTextCode : AppColors.lightTextCode,
               letterSpacing: 2,
             ),
           ),
@@ -33,94 +40,100 @@ class AboutSection extends StatelessWidget {
           Text(
             'Who I Am',
             style: GoogleFonts.inter(
-              fontSize: isMobile ? 36 : 48,
+              fontSize: isMobile ? 26 : (isTablet ? 36 : 44),
               fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+              color:
+                  isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.lightTextPrimary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Bridging AI, engineering, and security to build the future',
+            'Architecting production systems at scale—from cloud infrastructure to AI pipelines to security automation',
             style: GoogleFonts.inter(
               fontSize: isMobile ? 14 : 16,
-              color: AppColors.textSecondary,
+              color:
+                  isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.lightTextSecondary,
             ),
           ),
-
-          const SizedBox(height: 60),
-
-          // Content
-          isMobile ? _buildMobileLayout() : _buildDesktopLayout(isTablet),
+          SizedBox(height: isMobile ? 32 : 48),
+          isMobile
+              ? _buildMobileLayout(isDark)
+              : _buildDesktopLayout(isTablet, isDark),
         ],
       ),
     );
   }
 
-  Widget _buildDesktopLayout(bool isTablet) {
+  Widget _buildDesktopLayout(bool isTablet, bool isDark) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Left side - Avatar and stats
         Expanded(
           flex: 4,
-          child: _buildLeftPanel(isTablet: isTablet),
+          child: _buildLeftPanel(isTablet: isTablet, isDark: isDark),
         ),
-
         const SizedBox(width: 60),
-
-        // Right side - Content
         Expanded(
           flex: 6,
-          child: _buildRightPanel(isTablet: isTablet),
+          child: _buildRightPanel(isTablet: isTablet, isDark: isDark),
         ),
       ],
     );
   }
 
-  Widget _buildMobileLayout() {
+  Widget _buildMobileLayout(bool isDark) {
     return Column(
       children: [
-        _buildLeftPanel(isMobile: true),
+        _buildLeftPanel(isMobile: true, isDark: isDark),
         const SizedBox(height: 40),
-        _buildRightPanel(isMobile: true),
+        _buildRightPanel(isMobile: true, isDark: isDark),
       ],
     );
   }
 
-  Widget _buildLeftPanel({bool isMobile = false, bool isTablet = false}) {
+  Widget _buildLeftPanel({
+    bool isMobile = false,
+    bool isTablet = false,
+    required bool isDark,
+  }) {
     return Column(
       children: [
-        // Avatar placeholder (using emoji for now)
         Container(
-          width: isMobile ? 200 : 300,
-          height: isMobile ? 200 : 300,
+          width: isMobile ? 160 : 280,
+          height: isMobile ? 160 : 280,
           decoration: BoxDecoration(
-            color: AppColors.cardBackground,
+            color:
+                isDark
+                    ? AppColors.darkCardBackground
+                    : AppColors.lightCardBackground,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: AppColors.primaryAccent.withOpacity(0.2),
+              color: AppColors.primaryAccent.withValues(alpha: 0.2),
               width: 2,
             ),
           ),
           child: Center(
-            child: Text(
-              '👨‍💻',
-              style: TextStyle(fontSize: isMobile ? 80 : 120),
+            child: Icon(
+              FontAwesomeIcons.user,
+              size: isMobile ? 80 : 120,
+              color: AppColors.primaryAccent.withValues(alpha: 0.6),
             ),
           ),
         ),
-
         const SizedBox(height: 32),
-
-        // Name and details card
         Container(
           width: isMobile ? double.infinity : 300,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            gradient: AppColors.cardGradient,
+            gradient:
+                isDark ? AppColors.cardGradient : AppColors.lightCardGradient,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: AppColors.primaryAccent.withOpacity(0.1),
+              color: AppColors.primaryAccent.withValues(alpha: 0.1),
               width: 1,
             ),
           ),
@@ -132,25 +145,49 @@ class AboutSection extends StatelessWidget {
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                  color:
+                      isDark
+                          ? AppColors.darkTextPrimary
+                          : AppColors.lightTextPrimary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'AI • Full-Stack • Security',
+                'Software Engineer · Cloud · AI · Security',
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: 12,
-                  color: AppColors.textCode,
+                  color:
+                      isDark ? AppColors.darkTextCode : AppColors.lightTextCode,
                 ),
               ),
               const SizedBox(height: 24),
-              _buildStatRow('💼', 'Experience', '4+ Years'),
+              _buildStatRow(
+                FontAwesomeIcons.briefcase,
+                'Experience',
+                '4+ Years | 99.99% Uptime',
+                isDark,
+              ),
               const SizedBox(height: 12),
-              _buildStatRow('🔐', 'Security', '15+ Tools'),
+              _buildStatRow(
+                FontAwesomeIcons.cloudArrowUp,
+                'Cloud',
+                'AWS, Docker, CI/CD',
+                isDark,
+              ),
               const SizedBox(height: 12),
-              _buildStatRow('🤖', 'AI Systems', '10+ Projects'),
+              _buildStatRow(
+                FontAwesomeIcons.diagramProject,
+                'Projects',
+                '20+ Shipped',
+                isDark,
+              ),
               const SizedBox(height: 12),
-              _buildStatRow('🎓', 'Certs', 'CEH, AWS, OWASP'),
+              _buildStatRow(
+                FontAwesomeIcons.graduationCap,
+                'Education',
+                'MSc Leicester \'26',
+                isDark,
+              ),
             ],
           ),
         ),
@@ -158,106 +195,132 @@ class AboutSection extends StatelessWidget {
     );
   }
 
-  Widget _buildStatRow(String emoji, String label, String value) {
+  Widget _buildStatRow(IconData icon, String label, String value, bool isDark) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Row(
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 16)),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: AppColors.textSecondary,
+        Expanded(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: AppColors.primaryAccent),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color:
+                        isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.lightTextSecondary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        Text(
-          value,
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color:
+                  isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+            ),
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildRightPanel({bool isMobile = false, bool isTablet = false}) {
+  Widget _buildRightPanel({
+    bool isMobile = false,
+    bool isTablet = false,
+    required bool isDark,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Background section
         _buildContentBlock(
           'Background',
-          'I architect secure, intelligent systems that bridge the worlds of cybersecurity, '
-          'artificial intelligence, and modern software engineering. Currently pursuing MSc in '
-          'Advanced Computer Science at University of Leicester, I\'ve spent 4+ years building '
-          'production-grade applications—from Flutter mobile apps serving thousands of users '
-          'to AI-powered security platforms processing real-time threat intelligence.',
+          'Software engineer with 4+ years building scalable, production-grade systems across '
+              'cloud infrastructure, AI-powered applications, and security automation. Currently '
+              'pursuing MSc in Advanced Computer Science at University of Leicester (graduating '
+              'July 2026). Co-founded a startup, shipped 20+ projects, and achieved 99.99% '
+              'uptime for distributed systems through robust architecture and automated monitoring.',
           isMobile,
+          isDark,
         ),
 
         const SizedBox(height: 32),
 
-        // Current focus
         _buildContentBlock(
           'Current Focus',
-          'Building production-grade Agentic AI and conversational AI systems at TechMachinery Labs (SDE-3). '
-          'I lead end-to-end development of LLM-driven applications, integrating vector databases, '
-          'multi-agent systems, and RAG architectures using Flutter, FastAPI, and modern cloud infrastructure. '
-          '\n\nSimultaneously, as Cybersecurity Consultant at Visiminds Technologies, I\'m developing IVY—an '
-          'end-to-end security platform with OWASP Top 10 integration and automated threat detection.',
+          'Part-time consulting at TechMachinery and Visiminds during university breaks.\n\n'
+              '• TechMachinery: Agentic AI and LLM systems — RAG pipelines, vector databases, FastAPI/Flutter backends.\n'
+              '• Visiminds IVY: Security automation platform — OWASP tools (Nmap, Nikto, Nuclei, TestSSL), Docker, Grafana.\n'
+              '• Honeywell Forge: Polyglot GCP adapters for cloud migration (.NET, Java, Go, Node, Python).\n\n'
+              'Learning: MSc dissertation (AI/LLMs & vector databases), polyglot service design, and security tooling in production.\n'
+              'Working on: Agentic AI workflows, IVY automation pipelines, Forge adapters, and observability (Grafana, metrics).',
           isMobile,
+          isDark,
         ),
-
         const SizedBox(height: 32),
-
-        // Philosophy
         _buildContentBlock(
-          'Philosophy',
-          'Every system I build starts with security by design. Whether it\'s a multi-agent AI '
-          'orchestration platform or a distributed microservice architecture, zero-trust principles '
-          'and defense-in-depth are non-negotiable.\n\n'
-          'I believe the future belongs to systems that are not only intelligent but also '
-          'inherently secure and self-healing—systems that scale seamlessly from prototype to '
-          'production without compromising on safety or performance.',
+          'How I Work',
+          'I ship fast in high-ambiguity environments and make technical decisions independently — from '
+              'technology stack and database design to cloud architecture and deployment strategy. Whether '
+              'it\'s a microservices backend, an AI pipeline, or a CI/CD workflow, I focus on reliability, '
+              'observability, and clean architecture that scales from prototype to production.',
           isMobile,
+          isDark,
         ),
-
         const SizedBox(height: 32),
-
-        // Entrepreneurial experience
         _buildContentBlock(
           'Entrepreneurial Journey',
-          'Co-founded Drogher Technologies, a quick commerce platform where I led end-to-end product '
-          'development, managed cross-functional teams, and secured startup incubation at Great Lakes '
-          'University, Chennai. This experience taught me to build MVPs fast, scale applications efficiently, '
-          'and optimize cloud infrastructure for high-traffic systems.',
+          'Co-founded Drogher Technologies, a quick-commerce platform where I owned all technical '
+              'decisions from architecture to deployment. Built scalable microservices with Node.js and '
+              'PostgreSQL, set up CI/CD pipelines with Jenkins, and managed cross-functional teams. '
+              'Secured incubation training at Great Lakes University, Chennai. This experience taught me '
+              'to build MVPs fast, scale applications efficiently, and think about product-market fit '
+              'alongside engineering.',
           isMobile,
+          isDark,
         ),
       ],
     );
   }
 
-  Widget _buildContentBlock(String title, String content, bool isMobile) {
+  Widget _buildContentBlock(
+    String title,
+    String content,
+    bool isMobile,
+    bool isDark,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ShaderMask(
-          shaderCallback: (bounds) => AppColors.primaryGradient.createShader(
-            Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-          ),
+          shaderCallback:
+              (bounds) => AppColors.primaryGradient.createShader(
+                Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+              ),
           child: Text(
             title,
             style: GoogleFonts.inter(
               fontSize: isMobile ? 20 : 24,
               fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+              color:
+                  isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.lightTextPrimary,
             ),
           ),
         ),
@@ -266,7 +329,10 @@ class AboutSection extends StatelessWidget {
           content,
           style: GoogleFonts.inter(
             fontSize: isMobile ? 14 : 16,
-            color: AppColors.textSecondary,
+            color:
+                isDark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.lightTextSecondary,
             height: 1.8,
           ),
         ),
