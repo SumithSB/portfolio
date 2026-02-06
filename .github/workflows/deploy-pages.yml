@@ -1,5 +1,5 @@
 # Build Flutter web and push to "pages" branch. GitHub Pages serves from that branch.
-# Project URL: https://sumithsb.github.io/personal_portfolio/
+# Project URL: https://sumithsb.github.io/portfolio/
 # Settings → Pages: Source = "Deploy from a branch", Branch = pages, Folder = / (root).
 
 name: Deploy to GitHub Pages
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  BASE_HREF: "/personal_portfolio/"
+  BASE_HREF: "/portfolio/"
 
 jobs:
   build-and-deploy:
