@@ -169,12 +169,95 @@ class _HeroSectionState extends State<HeroSection>
     final verticalPadding = LayoutConstants.verticalPadding(screenWidth);
 
     final minHeight = isMobile ? 660.0 : (isTablet ? 760.0 : 840.0);
+
+    if (isMobile) {
+      // On mobile, let content drive height so terminal card is not clipped.
+      return ConstrainedBox(
+        constraints: BoxConstraints(minHeight: minHeight),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      isDark
+                          ? AppColors.darkPrimaryBackground
+                          : AppColors.lightPrimaryBackground,
+                      isDark
+                          ? AppColors.darkSecondaryBackground
+                          : AppColors.lightSecondaryBackground,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _gradientAnimation,
+                builder: (context, child) {
+                  final t = _gradientAnimation.value;
+                  final dx = 0.3 + 0.4 * t;
+                  final dy = 0.2 + 0.3 * (1 - t);
+                  return Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment(-1 + dx, -1),
+                        end: Alignment(dy, 1),
+                        colors: [
+                          AppColors.primaryAccent.withValues(alpha: 0.04),
+                          Colors.transparent,
+                          AppColors.primaryAccent.withValues(alpha: 0.03),
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Positioned.fill(child: _FloatingGridBackground(isDark: isDark)),
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: 32,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Transform.translate(
+                    offset: Offset(0, widget.scrollOffset * 0.12),
+                    child: _buildMobileLayout(isDark),
+                  ),
+                  SizedBox(height: isMobile ? 24 : 0),
+                  Center(
+                    child: AnimatedBuilder(
+                      animation: _scrollIndicatorBounce,
+                      builder: (context, child) {
+                        return Transform.translate(
+                          offset: Offset(0, _scrollIndicatorBounce.value),
+                          child: _buildScrollMouse(isDark, true),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return SizedBox(
       width: double.infinity,
       height: minHeight,
       child: Stack(
         children: [
-          // Full-width background (edge to edge)
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -211,34 +294,29 @@ class _HeroSectionState extends State<HeroSection>
                         AppColors.primaryAccent.withValues(alpha: 0.03),
                       ],
                       stops: const [0.0, 0.5, 1.0],
-                    ),
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
+          ),
           ),
           Positioned.fill(child: _FloatingGridBackground(isDark: isDark)),
-          // Content with horizontal padding and parallax
           Positioned.fill(
             child: Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: horizontalPadding,
-                vertical: isMobile ? 32 : (verticalPadding + 16),
+                vertical: verticalPadding + 16,
               ),
               child: Transform.translate(
                 offset: Offset(0, widget.scrollOffset * 0.12),
-                child:
-                    isMobile
-                        ? _buildMobileLayout(isDark)
-                        : _buildDesktopLayout(isTablet, isDark),
+                child: _buildDesktopLayout(isTablet, isDark),
               ),
             ),
           ),
-          // Small mouse scroll indicator (bottom center)
           Positioned(
             left: 0,
             right: 0,
-            bottom: isMobile ? 16 : 24,
+            bottom: 24,
             child: Center(
               child: AnimatedBuilder(
                 animation: _scrollIndicatorBounce,
