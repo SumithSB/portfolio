@@ -1,0 +1,7 @@
+Sky images and lighting maps are reduced from HDRIs by Poly Haven (https://polyhaven.com), released under CC0.
+  dawn     Spruit Sunrise
+  morning  Blouberg Sunrise 2
+  noon     Quarry 01
+  golden   Venice Sunset
+  night    Moonless Golf
+Obtained via the three.js examples (github.com/mrdoob/three.js, examples/textures/equirectangular).

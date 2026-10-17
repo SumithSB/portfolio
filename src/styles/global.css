@@ -119,7 +119,7 @@ h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.015em; }
 .walk:not(.is-3d) .chapter:nth-child(-n + 4) .meta span { color: #8A4E0E; }
 
 /* ---------- the walk in 3D ---------- */
-.walk.is-3d { height: 860svh; }
+.walk.is-3d { height: 1300svh; }
 .walk.is-3d .stage { position: sticky; top: 0; height: 100svh; overflow: hidden; }
 .walk.is-3d canvas { display: block; position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 1.4s var(--ease); touch-action: pan-y; }
 .walk.is-3d.ready canvas { opacity: 1; }

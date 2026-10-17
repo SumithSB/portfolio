@@ -15,10 +15,11 @@ const Grade = {
     grain: { value: 0.035 },
     warmth: { value: 0 },
     aberration: { value: 0.0012 },
+    fade: { value: 0 },
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float time, vignette, grain, warmth, aberration; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform float time, vignette, grain, warmth, aberration, fade; varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     void main(){
       vec2 c = vUv - 0.5; float d = dot(c, c);
@@ -30,6 +31,7 @@ const Grade = {
       col.rgb += mix(vec3(-0.012, 0.0, 0.02), vec3(0.025, 0.012, -0.015), smoothstep(0.2, 0.8, l)) * (0.6 + warmth);
       col.rgb *= 1.0 - vignette * smoothstep(0.08, 0.62, d * 1.6);
       col.rgb += (hash(vUv * 1000.0 + fract(time * 7.0)) - 0.5) * grain;
+      col.rgb *= 1.0 - fade; // cuts between chapters dip to black
       gl_FragColor = col;
     }`,
 };
@@ -50,7 +52,7 @@ export function createPost(r: THREE.WebGLRenderer, scene: THREE.Scene, cam: THRE
   composer.addPass(grade);
   composer.addPass(new OutputPass());
 
-  let q = quality;
+  let q = quality, fadeLevel = 0;
   const apply = () => { ao.enabled = q >= 2; bloom.enabled = q >= 1; grade.enabled = q >= 1; };
   apply();
 
@@ -64,13 +66,19 @@ export function createPost(r: THREE.WebGLRenderer, scene: THREE.Scene, cam: THRE
       ao.setSize(Math.round(w * ratio * 0.5), Math.round(h * ratio * 0.5));
     },
     // night 0..1 drives how much the lights glow.
-    update(t: number, night: number, warmth: number) {
-      bloom.strength = 0.18 + night * 0.75;
-      bloom.threshold = 0.86 - night * 0.18;
+    update(t: number, night: number, warmth: number, fade = 0) {
+      bloom.strength = 0.14 + night * 0.32;
+      bloom.threshold = 0.92 - night * 0.08;
       grade.uniforms.time.value = t;
       grade.uniforms.warmth.value = warmth;
       grade.uniforms.vignette.value = 0.26 + night * 0.18;
+      grade.uniforms.fade.value = fade;
+      fadeLevel = fade;
     },
-    render(dt: number) { if (q === 0) r.render(scene, cam); else composer.render(dt); },
+    render(dt: number) {
+      // The plain path has no grade pass, so a cut dips the canvas itself.
+      if (q === 0) { r.render(scene, cam); if (fadeLevel > 0) r.domElement.style.transition = 'none'; r.domElement.style.opacity = String(1 - fadeLevel); }
+      else { r.domElement.style.opacity = ''; composer.render(dt); }
+    },
   };
 }
