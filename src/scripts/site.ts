@@ -1,4 +1,4 @@
-import { animate, inView, scroll } from 'motion';
+import { inView, scroll } from 'motion';
 import Lenis from 'lenis';
 
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -6,7 +6,7 @@ const $ = <T extends Element = HTMLElement>(sel: string, el: ParentNode = docume
 const $$ = <T extends Element = HTMLElement>(sel: string, el: ParentNode = document) => [...el.querySelectorAll<T>(sel)];
 
 /* ---------- Smooth, weighted scrolling (skipped for reduced motion) ---------- */
-const lenis = reduce ? null : new Lenis({ lerp: 0.09, wheelMultiplier: 0.9, anchors: { offset: -72 } });
+const lenis = reduce ? null : new Lenis({ lerp: 0.12, wheelMultiplier: 0.9, anchors: false });
 if (lenis) {
   const raf = (t: number) => { lenis.raf(t); requestAnimationFrame(raf); };
   requestAnimationFrame(raf);
@@ -16,6 +16,16 @@ if (lenis) {
 const walk = $('.walk');
 const canvas = $<HTMLCanvasElement>('#walk-canvas');
 const webgl = (() => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; } })();
+
+const restoreStory = () => {
+  if (!walk) return;
+  const reading = Number(walk.dataset.chapter ?? 0);
+  walk.classList.remove('is-3d', 'at-start', 'ready', 'leaving');
+  walk.querySelectorAll<HTMLElement>('.chapter').forEach((el) => { el.removeAttribute('inert'); el.removeAttribute('aria-hidden'); });
+  const hud = $('.hud', walk); if (hud) hud.hidden = true;
+  walk.querySelectorAll('details').forEach((d) => { d.open = true; });
+  if (scrollY > 100) walk.querySelector<HTMLElement>(`#ch-${reading}`)?.scrollIntoView();
+};
 
 if (walk && canvas && webgl && !reduce) {
   walk.classList.add('is-3d', 'at-start');
@@ -29,9 +39,27 @@ if (walk && canvas && webgl && !reduce) {
       sound: $<HTMLButtonElement>('.sound', walk),
       progress: $('#walk-progress'),
       scrollTo: lenis ? (y) => lenis.scrollTo(y, { duration: 1.6 }) : undefined,
+      onFailure: restoreStory,
     }))
-    .catch(() => { walk.classList.remove('is-3d', 'at-start'); if (hud) hud.hidden = true; });
+    .catch(restoreStory);
 }
+
+// One owner for anchor navigation; the sticky story has its own real scroll destination.
+$$<HTMLAnchorElement>('a[href^="#"]').forEach((link) => link.addEventListener('click', (event) => {
+  const id = link.getAttribute('href')!.slice(1);
+  const target = document.getElementById(id);
+  if (!target) return;
+  event.preventDefault();
+  const story = id === 'story' && walk?.classList.contains('is-3d');
+  const y = story ? walk!.offsetTop + (0.35 / 6) * (walk!.offsetHeight - innerHeight) : target.getBoundingClientRect().top + scrollY - (id === 'top' ? 0 : 84);
+  const focus = () => {
+    const heading = story ? $('#ch-0') : target.querySelector<HTMLElement>('h2') ?? target;
+    heading?.setAttribute('tabindex', '-1'); heading?.focus({ preventScroll: true });
+  };
+  if (lenis) lenis.scrollTo(y, { duration: 1, onComplete: focus });
+  else { scrollTo({ top: y, behavior: 'instant' }); focus(); }
+  history.replaceState(null, '', `#${id}`);
+}));
 
 /* ---------- Header: solid once you leave the walk ---------- */
 const top = $('.top');
@@ -55,8 +83,6 @@ if (!reduce) {
   const items = $$('[data-reveal]');
   const buckets = new Map<Element, HTMLElement[]>();
   items.forEach((el) => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(24px)';
     const key = el.closest('section') ?? document.body;
     const list = buckets.get(key) ?? [];
     list.push(el);
@@ -65,8 +91,9 @@ if (!reduce) {
   buckets.forEach((list) => {
     list.forEach((el, idx) => {
       inView(el, () => {
-        animate(el, { opacity: 1, transform: 'translateY(0px)' }, { duration: 0.7, delay: idx * 0.07, ease: [0.16, 1, 0.3, 1] });
-      }, { margin: '0px 0px -12% 0px' });
+        // Animate the independent translate property, leaving card tilt/lift untouched.
+        el.animate([{ opacity: 0.25, translate: '0 18px' }, { opacity: 1, translate: '0 0' }], { duration: 650, delay: Math.min(idx, 3) * 55, easing: 'cubic-bezier(.16,1,.3,1)' });
+      }, { margin: '0px 0px -5% 0px' });
     });
   });
 }

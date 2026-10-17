@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 // Small helpers shared by the character and the scenes.
 const cache = new Map<string, THREE.MeshStandardMaterial>();
@@ -19,9 +20,16 @@ export const shadowy = <T extends THREE.Object3D>(o: T, cast = true, receive = f
   return o;
 };
 
+const boxGeometry = new Map<string, THREE.BufferGeometry>();
 export const box = (w: number, h: number, d: number, m: THREE.Material) => {
-  const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
-  b.castShadow = true; b.receiveShadow = true;
+  const radius = Math.min(w, h, d) * 0.08;
+  const key = `${w}:${h}:${d}`;
+  let geometry = boxGeometry.get(key);
+  if (!geometry) { geometry = new RoundedBoxGeometry(w, h, d, 1, Math.min(radius, 0.06)); boxGeometry.set(key, geometry); }
+  const b = new THREE.Mesh(geometry, m);
+  // Window panes, trim and tiny details do not need their own shadow draw calls.
+  b.castShadow = Math.min(w, h, d) > 0.09 && w * h * d > 0.08;
+  b.receiveShadow = true;
   return b;
 };
 export const capsule = (r: number, len: number, m: THREE.Material) => {
@@ -61,7 +69,7 @@ const grain = () => {
   const x = c.getContext('2d')!; const img = x.createImageData(256, 256); const R = rng(11);
   for (let i = 0; i < 256 * 256; i++) {
     const px = i % 256, py = (i / 256) | 0;
-    const v = 200 + R() * 40 + Math.sin(px * 0.11) * Math.sin(py * 0.07) * 10;
+    const v = 228 + R() * 12 + Math.sin(px * 0.11) * Math.sin(py * 0.07) * 10;
     img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v; img.data[i * 4 + 3] = 255;
   }
   x.putImageData(img, 0, 0); grainCanvas = c; return c;
@@ -70,6 +78,6 @@ export const detailed = (m: THREE.MeshStandardMaterial, w: number, d: number, ti
   const out = m.clone();
   const t = new THREE.CanvasTexture(grain()); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(w / tile, d / tile); t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
-  out.map = t; out.bumpMap = t; out.bumpScale = 0.6; out.roughnessMap = t;
+  out.map = t; out.bumpMap = t; out.bumpScale = 0.045; out.roughnessMap = t;
   return out;
 };

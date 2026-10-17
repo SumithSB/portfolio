@@ -32,7 +32,8 @@ export function sculptStage(stage: number): Sculpted {
     return blend(0.012 * H,
       cone([0, shJY, z], [0, elbowY, ez], armR, 0.031 * H * b),
       cone([0, elbowY, ez], [0, wristY, wz], 0.029 * H * b, 0.021 * H),
-      ellipsoid([0.006 * H, wristY - 0.045 * H, wz + s * 0.006 * H], [0.022 * H, 0.05 * H, 0.013 * H]),
+      ellipsoid([0.006 * H, wristY - 0.035 * H, wz + s * 0.006 * H], [0.021 * H, 0.032 * H, 0.014 * H]),
+      ...[-0.012, -0.004, 0.004, 0.012].map((dx) => cone([dx * H, wristY - 0.05 * H, wz], [dx * H, wristY - (0.08 - Math.abs(dx) * 0.5) * H, wz], 0.006 * H, 0.0045 * H)),
     );
   };
   const torsoField = blend(0.05 * H,
@@ -44,7 +45,7 @@ export function sculptStage(stage: number): Sculpted {
   const jawC: V3 = [0.08 * r, headY - 0.32 * r, 0], jawR: V3 = [0.86 * r, 0.72 * r, 0.82 * r];
   const headField = blend(0.05 * r,
     blend(0.25 * r, ellipsoid([0, headY, 0], [r, 1.12 * r, 0.94 * r]), ellipsoid(jawC, jawR)),
-    ellipsoid([0.98 * r, headY - 0.14 * r, 0], [0.16 * r, 0.13 * r, 0.12 * r]),
+    ellipsoid([0.97 * r, headY - 0.12 * r, 0], [0.22 * r, 0.16 * r, 0.14 * r]),
     ellipsoid([-0.05 * r, headY - 0.05 * r, 0.9 * r], [0.17 * r, 0.25 * r, 0.08 * r]),
     ellipsoid([-0.05 * r, headY - 0.05 * r, -0.9 * r], [0.17 * r, 0.25 * r, 0.08 * r]),
   );
@@ -98,7 +99,7 @@ export function sculptStage(stage: number): Sculpted {
     let hex = SKIN;
     if (part === 0) {
       hex = y < hipY + 0.04 * H ? L.bottom : L.top;
-      if (L.extra === 'blazer' && x > 0.03 * H && y > shY - 0.22 * H && Math.abs(z) < (y - (shY - 0.24 * H)) * 0.55) hex = 0xF2B8C6;
+
     } else if (part === 1 || part === 2) {
       if (y < ankleY + 0.015 * H) hex = y < ankleY - 0.034 * H ? (sneaker ? 0xB9B3A6 : 0x2A1C14) : L.shoe;
       else if (L.shorts) hex = y > kneeY + 0.06 * H ? L.bottom : y < ankleY + 0.08 * H ? 0xF2EFE8 : SKIN;

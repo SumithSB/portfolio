@@ -5,6 +5,8 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { createAmbience } from './audio';
 import { createPost, type Quality } from './post';
 import type { Sculpted } from './figure';
+import { LOOKS } from './looks';
+import { advanceRoot } from './locomotion';
 
 // Light across one day: dawn, morning, noon, golden hour, dusk in the rain, night.
 interface Key { top: number; bottom: number; fog: number; sun: number; sunI: number; sunY: number; hemi: number; night: number; rain: number; exp: number }
@@ -20,23 +22,12 @@ const KEYS: Key[] = [
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const smooth = (t: number) => t * t * (3 - 2 * t);
-
-const CAM_FRAMES = [
-  { y: 2.35, z: 8.6, lookY: 1.45 },
-  { y: 2.15, z: 7.9, lookY: 1.38 },
-  { y: 2.45, z: 8.8, lookY: 1.55 },
-  { y: 2.30, z: 8.3, lookY: 1.48 },
-  { y: 2.50, z: 9.0, lookY: 1.58 },
-  { y: 2.40, z: 8.7, lookY: 1.52 },
-];
-const sampleChapterFrame = (u: number) => {
-  const f = clamp(u, 0, CHAPTERS - 1);
-  const i = Math.floor(f);
-  const j = Math.min(CHAPTERS - 1, i + 1);
-  const t = i === j ? 0 : smooth(f - i);
-  const A = CAM_FRAMES[i], B = CAM_FRAMES[j];
-  return { y: lerp(A.y, B.y, t), z: lerp(A.z, B.z, t), lookY: lerp(A.lookY, B.lookY, t) };
+const setStyle = (element: HTMLElement, property: string, value: string) => {
+  if (element.style.getPropertyValue(property) !== value) element.style.setProperty(property, value);
 };
+const TIME_LABELS = ['Dawn', 'Morning', 'Noon', 'Golden hour', 'After the rain', 'Night'];
+const PLACE_LABELS = ['Karnataka, India', 'Lockdown, 2020', 'The first startup', 'Bengaluru, India', 'Leicester, UK', 'London, UK'];
+
 // Each chapter is a short walk through the heart of its scene: [start, length] along the road from the chapter's edge.
 // Scrolling moves him through that stretch; moving to the next chapter is a cut, like a film.
 const RANGES: Array<[number, number]> = [[14, 9], [20, 9], [16, 9], [26, 9], [22, 9], [END_X - 5 * SPAN - 9, 9]];
@@ -59,15 +50,27 @@ export interface WalkUI {
   mapButtons: HTMLButtonElement[];
   sound: HTMLButtonElement | null;
   progress: HTMLElement | null;
+  onFailure?: () => void;
   scrollTo?: (top: number) => void; // smooth scroller, when the page has one
 }
 
 export function startWalk(ui: WalkUI) {
+  let stopped = false;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const coarse = matchMedia('(pointer: coarse)').matches;
+  let worker: Worker | undefined;
+  let loadTimer: ReturnType<typeof setTimeout>;
+  let amb: ReturnType<typeof createAmbience> | undefined;
+  let releaseResources = () => {};
+  const fail = () => {
+    if (stopped) return;
+    stopped = true; worker?.terminate(); clearTimeout(loadTimer); amb?.stop();
+    releaseResources(); r.dispose(); ui.onFailure?.();
+  };
 
   const r = new THREE.WebGLRenderer({ canvas: ui.canvas, antialias: !coarse, powerPreference: 'high-performance' });
-  r.setPixelRatio(Math.min(devicePixelRatio, coarse ? 1.5 : 2));
+  r.setPixelRatio(Math.min(devicePixelRatio, coarse ? 1.25 : 1.5));
+  ui.canvas.addEventListener('webglcontextlost', (event) => { event.preventDefault(); fail(); }, { once: true });
   r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
   r.toneMapping = THREE.ACESFilmicToneMapping; r.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -80,18 +83,12 @@ export function startWalk(ui: WalkUI) {
     top: { value: new THREE.Color() }, bottom: { value: new THREE.Color() },
     sunDir: { value: new THREE.Vector3(0.8, 0.2, -0.5).normalize() }, sunCol: { value: new THREE.Color() },
     time: { value: 0 }, night: { value: 0 }, cloud: { value: 0.5 },
-    // Photographed skies, crossfaded between two times of day; `has` fades them in once loaded.
-    photoA: { value: null as THREE.Texture | null }, photoB: { value: null as THREE.Texture | null },
-    offA: { value: 0 }, offB: { value: 0 }, expA: { value: 1 }, expB: { value: 1 },
-    tintA: { value: new THREE.Color(1, 1, 1) }, tintB: { value: new THREE.Color(1, 1, 1) }, mixT: { value: 0 }, has: { value: 0 },
   };
   const sky = new THREE.Mesh(new THREE.SphereGeometry(200, 48, 24), new THREE.ShaderMaterial({
     uniforms: skyU, side: THREE.BackSide, depthWrite: false, fog: false,
     vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: `
       uniform vec3 top, bottom, sunDir, sunCol; uniform float time, night, cloud; varying vec3 vP;
-      uniform sampler2D photoA, photoB; uniform float offA, offB, expA, expB, mixT, has; uniform vec3 tintA, tintB;
-      vec2 equi(vec3 d, float off){ return vec2(atan(d.z, d.x) * 0.15915494 + 0.5 + off, asin(clamp(d.y, 0.0, 1.0)) * 0.31830989 + 0.5); }
       float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
         return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
@@ -112,12 +109,6 @@ export function startWalk(ui: WalkUI) {
           cc = mix(cc, top * 1.4, night);
           col = mix(col, cc, c * 0.55);
         }
-        if (has > 0.0) {
-          vec3 pa = texture2D(photoA, equi(d, offA)).rgb * expA * tintA;
-          vec3 pb = texture2D(photoB, equi(d, offB)).rgb * expB * tintB;
-          vec3 photo = mix(bottom, mix(pa, pb, mixT), smoothstep(-0.01, 0.14, d.y)); // hazes into the fog at the horizon
-          col = mix(col, photo, has);
-        }
         gl_FragColor = vec4(col, 1.0);
       }`,
   }));
@@ -125,7 +116,7 @@ export function startWalk(ui: WalkUI) {
 
   const hemi = new THREE.HemisphereLight(0xFFE2C2, 0x5A4636, 1.3); scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xFFC98A, 3); sun.castShadow = true;
-  const sm = coarse ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
+  const sm = coarse ? 1024 : 1536; sun.shadow.mapSize.set(sm, sm);
   Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 12, bottom: -6, far: 90 }); sun.shadow.bias = -0.0004;
   scene.add(sun, sun.target);
   // A warm light that stays with him, so he is never lost in the dark chapters.
@@ -136,47 +127,31 @@ export function startWalk(ui: WalkUI) {
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   pmrem.dispose();
 
-  // Real skies (CC0 photographs) and the light they cast. Loaded after the first frame; the drawn sky covers until then.
-  interface Sky { name: string; off: number; exp: number; tint: [number, number, number]; env: number }
-  const SKIES: Sky[] = [
-    { name: 'dawn', off: 0.185, exp: 1.25, tint: [1, 1, 1], env: 0.55 },
-    { name: 'morning', off: -0.358, exp: 1.2, tint: [1, 1, 1], env: 0.55 },
-    { name: 'noon', off: 0.186, exp: 1.2, tint: [1, 1, 1], env: 0.65 },
-    { name: 'golden', off: 0.186, exp: 1.3, tint: [1, 0.97, 0.92], env: 0.55 },
-    { name: 'morning', off: -0.358, exp: 0.42, tint: [0.72, 0.78, 0.95], env: 0.22 },
-    { name: 'night', off: 0, exp: 1.6, tint: [0.85, 0.9, 1.1], env: 0.3 },
-  ];
-  const photos = new Map<string, THREE.Texture>(), envs = new Map<string, THREE.Texture>();
-  const skyBase = (document.querySelector('link[rel=icon]') as HTMLLinkElement | null)?.href.replace(/favicon\.svg.*$/, '') ?? './';
-  const loadSkies = async () => {
-    const tl = new THREE.TextureLoader();
-    const { RGBELoader } = await import('three/examples/jsm/loaders/RGBELoader.js');
-    const hl = new RGBELoader();
-    const gen = new THREE.PMREMGenerator(r);
-    for (const name of new Set(SKIES.map((k) => k.name))) {
-      const [jpg, hdr] = await Promise.all([tl.loadAsync(`${skyBase}sky/${name}.jpg`), hl.loadAsync(`${skyBase}sky/${name}.hdr`)]);
-      jpg.colorSpace = THREE.SRGBColorSpace; jpg.wrapS = THREE.RepeatWrapping; jpg.generateMipmaps = true;
-      hdr.mapping = THREE.EquirectangularReflectionMapping;
-      photos.set(name, jpg); envs.set(name, gen.fromEquirectangular(hdr).texture); hdr.dispose();
-    }
-    gen.dispose();
-  };
-  let skiesReady = false;
-  loadSkies().then(() => { skiesReady = true; }).catch(() => { /* keep the drawn sky */ });
-
+  // A single art-directed sky and studio environment keep every chapter's light coherent.
   const world = buildWorld(scene);
 
-  let ratio = Math.min(devicePixelRatio, coarse ? 1.5 : 2);
+  let ratio = Math.min(devicePixelRatio, coarse ? 1.25 : 1.5);
   // ?quality=0|1|2 pins the quality level, for checking how the walk looks on any device.
   const pinned = new URLSearchParams(location.search).get('quality');
-  const post = createPost(r, scene, cam, (pinned !== null ? clamp(+pinned, 0, 2) : coarse ? 1 : 2) as Quality);
+  const post = createPost(r, scene, cam, (pinned !== null ? clamp(Number(pinned) || 0, 0, 2) : coarse ? 0 : 1) as Quality);
+  releaseResources = () => {
+    post.dispose();
+    const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>();
+    scene.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (mesh.geometry) geometries.add(mesh.geometry);
+      if (mesh.material) (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((m) => materials.add(m));
+    });
+    geometries.forEach((g) => g.dispose()); materials.forEach((m) => m.dispose());
+    scene.environment?.dispose();
+  };
   // Watch the frame rate and step quality down if the device struggles. Never steps back up, so it can't flicker.
   let slowFrames = 0, sampled = 0;
   const adapt = (dt: number) => {
     // Judge in short windows by majority, so one hitch never counts but a slow device steps down within a second or two.
     sampled++; if (dt > 1 / 40) slowFrames++;
-    if (sampled < 30) return;
-    if (slowFrames > 18) {
+    if (sampled < 12) return;
+    if (slowFrames > 8) {
       if (post.quality > 0) post.setQuality((post.quality - 1) as Quality);
       else if (ratio > 1) { ratio = 1; r.setPixelRatio(1); lastW = 0; }
     }
@@ -192,22 +167,30 @@ export function startWalk(ui: WalkUI) {
   };
   // Six versions of him, one per age. Each is sculpted in a background worker, the current chapter's first.
   const people: Array<Person | undefined> = new Array(CHAPTERS);
-  const arrive = (stage: number, data: Sculpted) => { const p = makePerson(stage, data); p.visible = false; scene.add(p); people[stage] = p; };
+  let loopStarted = false;
+  const arrive = (stage: number, data: Sculpted) => {
+    if (stopped) return;
+    const p = makePerson(stage, data); p.visible = false; scene.add(p); people[stage] = p;
+    if (stage === first) {
+      clearTimeout(loadTimer);
+      if (!loopStarted) { loopStarted = true; requestAnimationFrame(frame); }
+    }
+  };
   const r0 = ui.root.getBoundingClientRect();
   const first = place(clamp(-r0.top / Math.max(1, r0.height - innerHeight))).c;
   const order = [first, ...Array.from({ length: CHAPTERS }, (_, i) => i).filter((i) => i !== first)];
+  loadTimer = setTimeout(fail, 12000);
   try {
-    const worker = new Worker(new URL('./figure.worker.ts', import.meta.url), { type: 'module' });
+    worker = new Worker(new URL('./figure.worker.ts', import.meta.url), { type: 'module' });
     let arrived = 0;
+    worker.onerror = (event) => { event.preventDefault(); fail(); };
+    worker.onmessageerror = fail;
     worker.onmessage = (e: MessageEvent<{ stage: number; out: Sculpted }>) => {
-      arrive(e.data.stage, e.data.out);
-      if (++arrived === CHAPTERS) worker.terminate();
+      try { arrive(e.data.stage, e.data.out); } catch { fail(); return; }
+      if (++arrived === CHAPTERS) worker?.terminate();
     };
-    order.forEach((i) => worker.postMessage(i));
-  } catch {
-    // No workers: sculpt on the page, one age per idle moment.
-    import('./figure').then(({ sculptStage }) => order.forEach((i, n) => setTimeout(() => arrive(i, sculptStage(i)), 60 * n)));
-  }
+    order.forEach((i) => worker!.postMessage(i));
+  } catch { fail(); }
 
   const tmp = { a: new THREE.Color(), b: new THREE.Color() };
   const mixCol = (out: THREE.Color, a: number, b: number, t: number) => out.copy(tmp.a.set(a)).lerp(tmp.b.set(b), t);
@@ -221,17 +204,27 @@ export function startWalk(ui: WalkUI) {
     return clamp(-rect.top / Math.max(1, rect.height - innerHeight));
   };
   const scrollToChapter = (i: number) => {
-    const top = ui.root.offsetTop + ((i + 0.08) / CHAPTERS) * (ui.root.offsetHeight - innerHeight);
+    const top = ui.root.offsetTop + ((i + 0.35) / CHAPTERS) * (ui.root.offsetHeight - innerHeight);
     if (ui.scrollTo && !reduce) ui.scrollTo(top); else scrollTo({ top, behavior: reduce ? 'auto' : 'smooth' });
   };
-  ui.mapButtons.forEach((b, i) => b.addEventListener('click', () => scrollToChapter(i)));
+  ui.mapButtons.forEach((b, i) => b.addEventListener('click', () => {
+    scrollToChapter(i);
+    let attempts = 0;
+    const focusCard = () => {
+      if (stopped || attempts++ > 30) return;
+      if (ui.cards[i].classList.contains('is-on')) ui.cards[i].querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
+      else setTimeout(focusCard, 100);
+    };
+    setTimeout(focusCard, 1700);
+  }));
 
-  const amb = createAmbience();
+  amb = createAmbience();
+  document.addEventListener('visibilitychange', () => { if (document.hidden) amb?.setMix(-1); });
   ui.sound?.addEventListener('click', () => {
     const on = ui.sound!.getAttribute('aria-pressed') !== 'true';
     ui.sound!.setAttribute('aria-pressed', String(on));
     ui.sound!.querySelector('span')!.textContent = on ? 'Sound on' : 'Sound off';
-    if (on) amb.start(); else amb.stop();
+    if (on) amb!.start(); else amb!.stop();
   });
 
   /* ---------- size ---------- */
@@ -241,23 +234,25 @@ export function startWalk(ui: WalkUI) {
     if (!w || !h || (w === lastW && h === lastH)) return;
     lastW = w; lastH = h;
     r.setPixelRatio(ratio); r.setSize(w, h, false); post.setSize(w, h, ratio);
-    cam.aspect = w / h; cam.fov = cam.aspect < 0.8 ? 58 : cam.aspect < 1.3 ? 48 : 40; cam.updateProjectionMatrix();
+    cam.aspect = w / h; cam.fov = cam.aspect < 0.8 ? 42 : 38; cam.updateProjectionMatrix();
   };
 
   /* ---------- the loop ---------- */
   let x = place(progressAt()).x, lastX = x, phase = 0, stillFor = 0, waved = false, waveT = 0, endT = 0;
   let cutT = -1, fade = 0, jumped = false;
-  let smoothPtrX = 0, smoothPtrY = 0, sideS = 0.35;
+  let smoothPtrX = 0, smoothPtrY = 0;
+  let portraitShift = progressAt() < 0.012 ? -0.21 : 0.17;
   const camPos = new THREE.Vector3(), camLook = new THREE.Vector3(); let camInit = false;
   let visible = true, last = performance.now();
-  new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (!visible) amb.setMix(-1); }).observe(ui.root);
+  new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (!visible) amb!.setMix(-1); }).observe(ui.root);
   const phoneAt = new THREE.Vector3();
   const ps: PoseState = { phase: 0, moving: 0, mode: 'walk', t: 0, time: 0, look: 0, dt: 0, signedSpeed: 0, dx: 0 };
 
   const frame = (now: number) => {
+    if (stopped) return;
     requestAnimationFrame(frame);
     if (!visible || document.hidden) { last = now; return; }
-    const dt = Math.min(0.5, (now - last) / 1000); last = now;
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
     const t = now / 1000;
     fit();
 
@@ -273,7 +268,7 @@ export function startWalk(ui: WalkUI) {
     } else {
       const gap = pl.x - x;
       if (Math.abs(gap) > CUT_GAP) { cutT = 0; jumped = false; }
-      else x = pl.x; // exactly where the scroll puts him: no drifting, no catching up
+      else x = advanceRoot(x, pl.x, dt);
     }
     if (!reduce && pinned === null) adapt(dt);
     const dx = x - lastX; lastX = x;
@@ -286,7 +281,9 @@ export function startWalk(ui: WalkUI) {
 
     // The scene follows where he is; the words follow the scroll.
     const ch = Math.min(CHAPTERS - 1, Math.max(0, Math.floor(x / SPAN)));
-    const localP = pl.u;
+    // Captions and characters change together, after the cut reaches the new chapter.
+    const localP = ch === pl.c ? pl.u : 0;
+    if (ui.root.dataset.chapter !== String(ch)) ui.root.dataset.chapter = String(ch);
     const atStart = prog < 0.012;
     const cardVis = atStart ? 0 : pl.c === CHAPTERS - 1
       ? smooth(clamp((localP - 0.02) / 0.08))
@@ -298,16 +295,19 @@ export function startWalk(ui: WalkUI) {
     if (prog > 0.95) ui.root.dataset.walkEnd = 'true';
     else delete ui.root.dataset.walkEnd;
     ui.cards.forEach((c, i) => {
-      const vis = i === pl.c ? cardVis : 0;
+      const vis = i === ch ? cardVis : 0;
       const on = vis > 0.04;
       if (c.classList.contains('is-on') !== on) c.classList.toggle('is-on', on);
-      c.style.setProperty('--card-vis', vis.toFixed(3));
-      if (i === pl.c) c.style.setProperty('--card-p', localP.toFixed(3));
+      c.toggleAttribute('inert', !on);
+      if (c.getAttribute('aria-hidden') !== String(!on)) c.setAttribute('aria-hidden', String(!on));
+      setStyle(c, '--card-vis', vis.toFixed(3));
+      if (i === ch) setStyle(c, '--card-p', localP.toFixed(3));
     });
     ui.mapButtons.forEach((b, i) => {
       const fillAmt = i < pl.c ? 1 : i > pl.c ? 0 : localP;
-      b.style.setProperty('--ch-fill', fillAmt.toFixed(3));
-      b.toggleAttribute('aria-current', i === pl.c && !atStart);
+      setStyle(b, '--ch-fill', fillAmt.toFixed(3));
+      if (i === ch && !atStart) { if (!b.hasAttribute('aria-current')) b.setAttribute('aria-current', 'step'); }
+      else if (b.hasAttribute('aria-current')) b.removeAttribute('aria-current');
     });
     people.forEach((person, i) => { if (person) setPersonTransition(person, chapterWeight(i, x)); });
     const [rs, rl] = RANGES[ch];
@@ -321,24 +321,15 @@ export function startWalk(ui: WalkUI) {
     r.toneMappingExposure = lerp(A.exp, B.exp, kt);
     const night = lerp(A.night, B.night, kt), rain = lerp(A.rain, B.rain, kt);
     skyU.time.value = t; skyU.night.value = night; skyU.cloud.value = 0.35 + rain * 0.6;
-    if (skiesReady) {
-      const SA = SKIES[k0], SB = SKIES[k1];
-      skyU.photoA.value = photos.get(SA.name)!; skyU.photoB.value = photos.get(SB.name)!;
-      skyU.offA.value = SA.off; skyU.offB.value = SB.off; skyU.expA.value = SA.exp; skyU.expB.value = SB.exp;
-      skyU.tintA.value.setRGB(...SA.tint); skyU.tintB.value.setRGB(...SB.tint); skyU.mixT.value = kt;
-      skyU.has.value = Math.min(1, skyU.has.value + dt * 0.8);
-      scene.environment = envs.get((kt < 0.5 ? SA : SB).name)!;
-      scene.environmentIntensity = lerp(SA.env, SB.env, kt) * skyU.has.value + lerp(0.22, 0.12, night) * (1 - skyU.has.value);
-      hemi.intensity *= 1 - 0.45 * skyU.has.value; // the sky's own light takes over from the flat fill
-    } else scene.environmentIntensity = lerp(0.22, 0.12, night);
+    scene.environmentIntensity = lerp(0.4, 0.25, night);
     post.update(t, night, clamp(1 - Math.abs(f - 3) / 1.5), fade);
-    fill.intensity = night * 14; fill.position.set(x + 1.6, 2.6, 2.6);
-    world.nightMats.forEach((m) => { m.emissiveIntensity = 0.12 + night * 1.1; });
+    fill.intensity = 1.4 + night * 7; fill.position.set(x + 1.6, 2.6, 2.6);
+    world.nightMats.forEach((m) => { m.emissiveIntensity = 0.06 + night * 0.55; });
     (world.stars.material as THREE.PointsMaterial).opacity = clamp((night - 0.55) * 2.2);
     (world.rain.material as THREE.LineBasicMaterial).opacity = rain * 0.75;
     hemi.groundColor.setRGB(lerp(0.35, 0.08, night), lerp(0.27, 0.09, night), lerp(0.21, 0.16, night));
     if (ui.progress) ui.progress.style.transform = `scaleX(${prog.toFixed(4)})`;
-    amb.setMix(f);
+    amb!.setMix(f);
 
     // Him: walking while you scroll, turning to you when you stop.
     const moving = clamp(speed * 0.6);
@@ -349,11 +340,11 @@ export function startWalk(ui: WalkUI) {
 
     let mode: PoseState['mode'] = 'walk';
     if (atEnd) mode = 'phone';
-    else if (stillFor > 1.2 && !waved && !reduce) { mode = 'wave'; waveT += dt; if (waveT > 1.8) { waved = true; waveT = 0; } }
-    else if (stillFor > 0.4) mode = ch === CHAPTERS - 1 ? 'pockets' : 'idle';
+    else if (prog < 0.012 && stillFor > 3 && !waved && !reduce) { mode = 'wave'; waveT += dt; if (waveT > 1.8) { waved = true; waveT = 0; } }
+    else if (stillFor > 0.4) mode = 'idle';
     else waveT = 0;
 
-    const turn = stillFor > 0.4 || atEnd ? -0.85 : 0;
+    const turn = stillFor > 0.4 || atEnd ? -0.55 : 0;
     const turnBlend = reduce ? 1 : 1 - Math.exp(-dt * 3.2); // a weighty turn; the head leads it
     ps.phase = phase; ps.moving = moving; ps.mode = mode; ps.t = t; ps.time = t; ps.dt = dt; ps.signedSpeed = signedSpeed; ps.dx = dx;
     const lookTarget = coarse ? 0 : (pointerX - 0.5) * 1.4 * (stillFor > 0.4 ? 1 : 0.4) - (pointerY - 0.5) * 0.1;
@@ -367,7 +358,6 @@ export function startWalk(ui: WalkUI) {
     }
 
     // At the end the phone in his hand sends lines of light out across the city.
-    const endK = reduce ? (atEnd ? 1 : 0) : smooth(clamp(endT / 1.4));
     const phoneObj = p?.userData.phone;
     if (p && phoneObj && atEnd) {
       p.updateMatrixWorld(true); phoneObj.getWorldPosition(phoneAt);
@@ -383,38 +373,37 @@ export function startWalk(ui: WalkUI) {
     if (!reduce) world.tick(t, x, dt);
     world.rain.position.x = x;
 
-    // Camera follows, a little higher and further out on narrow screens.
+    // Age-aware framing. Portrait captions sit below a dedicated character viewing area.
     const narrow = cam.aspect < 0.8;
-    const fr = sampleChapterFrame(x / SPAN);
-    const breathe = reduce ? 0 : Math.sin(t * 1.1) * 0.03;
-    const dolly = reduce ? 0 : Math.min(speed, 1.2) * 0.45;
-    const px = reduce || coarse ? 0 : smoothPtrX * 0.35;
-    const py = reduce || coarse ? 0 : smoothPtrY * 0.22;
-    // Card sits on the left, so the camera sits a little ahead-left and he reads on the open side.
-    // Card sits on the left, so the camera drifts ahead-left and he reads on the open side. Eased, never snapped.
-    sideS += ((cardOn ? -1.15 : 0.35) - sideS) * (1 - Math.exp(-dt * 1.6));
-    const hand = reduce ? 0 : 1; // a faint hand-held drift
-    const hx = (Math.sin(t * 0.37) + Math.sin(t * 0.91) * 0.5) * 0.025 * hand;
-    const hy = (Math.sin(t * 0.53 + 1.3) + Math.sin(t * 1.27) * 0.4) * 0.02 * hand;
-    const cx = x + (narrow ? 0.15 : lerp(sideS, -1.7, endK)) + px + hx;
-    const cy = (narrow ? fr.y + 0.35 : fr.y) + breathe + py + hy;
-    const cz = (narrow ? fr.z + 2.3 : fr.z) + dolly;
-    const lookY = (narrow ? fr.lookY + 0.22 : fr.lookY) + endK * 0.35;
-    const k = reduce || !camInit ? 1 : 1 - Math.exp(-dt * 4.5);
-    const kx = reduce || !camInit ? 1 : 1 - Math.exp(-dt * 10); // sideways: stays locked on him
-    camPos.x += (cx - camPos.x) * kx; camPos.y += (cy - camPos.y) * k; camPos.z += (cz - camPos.z) * k;
-    camLook.x += (cx + (narrow ? 0.1 : 0.2) - camLook.x) * kx; camLook.y += (lookY - camLook.y) * k; camLook.z = -4;
+    const H = LOOKS[ch].H;
+    const atHero = atStart;
+    const lensDistance = H * (narrow ? 4.0 : 3.45);
+    const px = reduce || coarse ? 0 : smoothPtrX * 0.09;
+    const py = reduce || coarse ? 0 : smoothPtrY * 0.045;
+    const cx = x + (narrow ? 0.75 : 1.25) + px;
+    const cy = H * 0.85 + py;
+    const lookX = x - (narrow ? 0 : 1.35);
+    const lookY = H * 0.5;
+    const k = !camInit ? 1 : 1 - Math.exp(-dt * 7);
+    camPos.x += (cx - camPos.x) * k; camPos.y += (cy - camPos.y) * k; camPos.z += (lensDistance - camPos.z) * k;
+    camLook.set(lookX, lookY, 0);
     camInit = true;
-    cam.position.copy(camPos);
-    cam.lookAt(camLook);
+    portraitShift += ((atHero ? -0.21 : lastH < 700 ? 0.2 : 0.17) - portraitShift) * (1 - Math.exp(-dt * 6));
+    cam.setViewOffset(lastW, lastH, 0, narrow ? lastH * portraitShift : 0, lastW, lastH);
+    cam.position.copy(camPos); cam.lookAt(camLook);
     sky.position.copy(cam.position);
+    if (ui.root.dataset.caption !== String(ch)) {
+      ui.root.dataset.caption = String(ch);
+      const time = ui.root.querySelector('.scene-time'), place = ui.root.querySelector('.scene-location');
+      if (time) time.textContent = TIME_LABELS[ch]; if (place) place.textContent = PLACE_LABELS[ch];
+    }
     // The sun's direction from where we stand, for the glow in the sky.
     skyU.sunDir.value.set(30, lerp(A.sunY, B.sunY, kt), -18).normalize();
     sun.position.set(x + 30, lerp(A.sunY, B.sunY, kt), -18); sun.target.position.set(x + 4, 0, 0);
     post.render(dt);
+    if (people[ch]) ui.root.classList.add('ready');
   };
-  requestAnimationFrame(frame);
-  requestAnimationFrame(() => requestAnimationFrame(() => ui.root.classList.add('ready')));
+
 }
 
 export { SPAN, CHAPTERS, END_X };

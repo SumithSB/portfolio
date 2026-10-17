@@ -3,6 +3,7 @@ import { mat, box, cyl } from './kit';
 import { polygonize, roundBox } from './sculpt';
 import { LOOKS, SKIN, HAIR, dims, type Look } from './looks';
 import type { Arrays, Sculpted } from './figure';
+import { advanceGait } from './locomotion';
 
 export { LOOKS };
 
@@ -95,12 +96,12 @@ export function makePerson(stage: number, sculpted: Sculpted): Person {
   const cached = { geo: toGeo(sculpted.body), hair: toGeo(sculpted.hair), beard: sculpted.beard ? toGeo(sculpted.beard) : null };
 
   g.updateMatrixWorld(true);
-  const skin = new THREE.SkinnedMesh(cached.geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.72 }));
+  const skin = new THREE.SkinnedMesh(cached.geo, new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.78, sheen: 0.16, sheenRoughness: 0.8, sheenColor: new THREE.Color(0xCDBEA9) }));
   skin.castShadow = true; skin.receiveShadow = true; skin.frustumCulled = false;
   g.add(skin);
   skin.bind(new THREE.Skeleton(bones));
 
-  const mHair = new THREE.MeshStandardMaterial({ color: HAIR, roughness: 0.5 });
+  const mHair = new THREE.MeshStandardMaterial({ color: HAIR, roughness: 0.83 });
   const hairMesh = new THREE.Mesh(cached.hair, mHair); hairMesh.castShadow = true; head.add(hairMesh);
   if (cached.beard) {
     const bm = L.beard === 'stubble' ? new THREE.MeshStandardMaterial({ color: 0x2A1F19, roughness: 1, transparent: true, opacity: 0.5 }) : new THREE.MeshStandardMaterial({ color: 0x17120F, roughness: 0.9 });
@@ -108,20 +109,47 @@ export function makePerson(stage: number, sculpted: Sculpted): Person {
   }
 
   /* ---------- face ---------- */
-  const mEye = mat(0x120E0C, { r: 0.3 });
-  const eyes = new THREE.Group(); eyes.position.set(r * 0.95, r * 0.04, 0); head.add(eyes);
-  for (const z of [1, -1]) {
-    const eye = new THREE.Mesh(new THREE.TorusGeometry(r * 0.11, r * 0.03, 8, 16, Math.PI), mEye);
-    eye.rotation.y = Math.PI / 2; eye.position.set(0, 0, z * r * 0.34); eyes.add(eye);
-    const brow = box(0.016, r * 0.08, r * 0.34, mat(HAIR, { r: 0.6 })); brow.position.set(r * 0.95, r * 0.3, z * r * 0.34); brow.rotation.x = z * 0.12; head.add(brow);
+  const eyes = new THREE.Group(); eyes.position.set(0, 0, 0); head.add(eyes);
+  const sclera = mat(0xD9C8AD, { r: 0.5 }), iris = mat(0x2C2018, { r: 0.35 });
+  for (const sign of [1, -1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(r * 0.14, 16, 10), sclera);
+    eye.scale.set(0.35, 0.55, 1); eye.position.set(r * 0.93, r * 0.03, sign * r * 0.34); eyes.add(eye);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(r * 0.078, 12, 8), iris);
+    pupil.scale.set(0.3, 0.9, 1); pupil.position.set(r * 0.981, r * 0.03, sign * r * 0.34 + r * 0.025); eyes.add(pupil);
+    const glint = new THREE.Mesh(new THREE.SphereGeometry(r * 0.018, 6, 4), mat(0xFFF2D9, { r: 0.15 }));
+    glint.position.set(r * 1.007, r * 0.06, sign * r * 0.34); eyes.add(glint);
+    const brow = new THREE.Mesh(new THREE.CapsuleGeometry(r * 0.028, r * 0.23, 3, 8), mat(HAIR));
+    brow.rotation.x = Math.PI / 2 + sign * 0.12; brow.position.set(r * 0.93, r * 0.235, sign * r * 0.34); head.add(brow);
   }
-  const mouthM = new THREE.Mesh(new THREE.SphereGeometry(r * 0.32, 24, 12, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5), mat(0x5A1E1A));
-  mouthM.scale.set(0.35, 0.55, 1.1); mouthM.position.set(r * 0.92, -r * 0.4, 0); head.add(mouthM);
-  const teeth = box(0.012, r * 0.11, r * 0.56, mat(0xF7F3EA, { r: 0.3 })); teeth.position.set(r * 0.99, -r * 0.42, 0); head.add(teeth);
+  // A small, relaxed mouth instead of a permanent open grin.
+  const lip = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(r * 0.91, -r * 0.39, -r * 0.22),
+    new THREE.Vector3(r * 0.98, -r * 0.43, 0),
+    new THREE.Vector3(r * 0.91, -r * 0.39, r * 0.22),
+  ]);
+  head.add(new THREE.Mesh(new THREE.TubeGeometry(lip, 12, r * 0.018, 5, false), mat(0x663C2B, { r: 0.9 })));
   if (L.cap) {
     const board = box(r * 2.6, 0.02, r * 2.6, mat(0x151110)); board.position.y = r * 1.42; board.rotation.y = Math.PI / 4; head.add(board);
     const crown = cyl(r * 0.98, r * 1.03, r * 0.42, mat(0x151110)); crown.position.y = r * 1.2; head.add(crown);
     const tassel = box(0.01, r * 0.8, 0.01, mat(0xF2A93B, { e: 0xF2A93B, ei: 0.3 })); tassel.position.set(r * 0.9, r * 1.05, r * 0.9); head.add(tassel);
+  }
+
+  // Cuffs and a real collar give clothing thickness and clean silhouettes.
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(r * 0.43, r * 0.065, 6, 20), mat(L.topShade ?? L.top));
+  collar.rotation.x = Math.PI / 2; collar.position.y = torsoLen + 0.016; torso.add(collar);
+  for (const A of [armF, armB]) {
+    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.023 * H, 0.025 * H, 0.025 * H, 12), mat(L.topShade ?? L.top));
+    if (!L.short) { cuff.position.y = -0.002 * H; A.userData.hand.add(cuff); }
+    const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.007 * H, 0.025 * H, 3, 8), mat(SKIN));
+    thumb.rotation.z = -0.5; thumb.position.set(0.019 * H, -0.035 * H, 0); A.userData.hand.add(thumb);
+  }
+  if (L.extra === 'blazer') {
+    const shirt = box(0.012, torsoLen * 0.65, 0.06 * H, mat(0xE8DFCE));
+    shirt.position.set(0.078 * H * b + 0.007, torsoLen * 0.63, 0); torso.add(shirt);
+    for (const sign of [-1, 1]) {
+      const lapel = box(0.016, torsoLen * 0.52, 0.025 * H, mat(0x1D2C48));
+      lapel.position.set(0.078 * H * b + 0.018, torsoLen * 0.7, sign * 0.045 * H); lapel.rotation.x = sign * 0.22; torso.add(lapel);
+    }
   }
 
   /* ---------- what he carries ---------- */
@@ -206,13 +234,12 @@ export function pose(p: Person, s: PoseState) {
   const brisk = Math.min(1, j.speed / 2.6);
   const amp = w * (0.36 + 0.24 * brisk); // longer strides when brisk
 
-  // Phase: one half-turn per step. The step length matches the leg swing, and cadence is capped at about three steps a second.
+  // Phase: one half-turn per step. The phase follows signed root distance; the root controller bounds physical walking speed.
   const stepLen = 2 * legLen * Math.sin(Math.max(amp, 0.2));
-  const maxRate = Math.PI * (2 + brisk);
-  if (going) j.gait += Math.min(Math.abs(s.dx) * Math.PI / stepLen, maxRate * dt);
+  if (going) j.gait = advanceGait(j.gait, s.dx, stepLen);
   else if (w > 0.02) { // finish the step he was on, then stand
-    const rest = Math.ceil(j.gait / Math.PI - 0.15) * Math.PI;
-    j.gait += Math.min(Math.max(0, rest - j.gait), Math.PI * 2.2 * dt);
+    const rest = Math.round(j.gait / Math.PI) * Math.PI;
+    j.gait += Math.sign(rest - j.gait) * Math.min(Math.abs(rest - j.gait), Math.PI * 2.2 * dt);
   }
   const ph = j.gait;
   const stride = Math.sin(ph);
@@ -284,7 +311,7 @@ export function pose(p: Person, s: PoseState) {
   } else if (s.mode === 'pockets') {
     tArmFX = -0.32; tArmBX = 0.32; tArmFZ = -0.1; tArmBZ = -0.1;
     tElbowFZ = 0.15; tElbowBZ = 0.15; tElbowFX = 0.75; tElbowBX = -0.75;
-    hideHands = 1; rate = 5;
+    rate = 5;
   } else if (showPhone) {
     tArmFZ = 0.82 + Math.sin(s.time * 1.3) * 0.02; tElbowFZ = 1.3; tArmBZ = armSwing; tElbowBZ = 0.22; rate = 6;
   } else if (s.mode === 'idle') {
@@ -322,9 +349,9 @@ export function pose(p: Person, s: PoseState) {
   const eF = armF.userData.elbow as THREE.Group, eB = armB.userData.elbow as THREE.Group;
   eF.rotation.set(j.elbowFX, 0, j.elbowFZ);
   eB.rotation.set(j.elbowBX, 0, j.elbowBZ);
-  const handScale = Math.max(0.02, 1 - j.handHide);
+  const handScale = 1;
   const handF = armF.userData.hand as THREE.Object3D, handB = armB.userData.hand as THREE.Object3D;
-  handF.visible = j.handHide < 0.92; handB.visible = j.handHide < 0.92;
+  handF.visible = true; handB.visible = true;
   handF.scale.setScalar(handScale); handB.scale.setScalar(handScale);
 
   p.torso.rotation.z = j.torsoZ;

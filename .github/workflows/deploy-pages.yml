@@ -30,6 +30,11 @@ jobs:
       - name: Build site
         run: npm run build
 
+      - name: Validate types and character movement
+        run: |
+          npm run typecheck
+          npm test
+
       - name: Deploy to pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:

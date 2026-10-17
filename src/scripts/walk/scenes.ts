@@ -40,7 +40,7 @@ export function buildWorld(scene: THREE.Scene): World {
   const add = <T extends THREE.Object3D>(o: T) => { scene.add(o); return o; };
   const ox = (i: number) => i * SPAN;
   const glow = glowTexture();
-  const halo = (x: number, y: number, z: number, s: number) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.85 })); sp.scale.set(s, s, 1); sp.position.set(x, y, z); return add(sp); };
+  const halo = (x: number, y: number, z: number, s: number) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.4 })); sp.scale.set(s, s, 1); sp.position.set(x, y, z); return add(sp); };
 
   /* ---------- ground: one strip per chapter ---------- */
   const groundCols = [0x8DAF5E, 0x9A948A, 0x8A8378, 0x8F887C, 0x55515E, 0x1E2333];
@@ -109,11 +109,17 @@ export function buildWorld(scene: THREE.Scene): World {
     const g = new THREE.Group(); const post = cyl(0.06, 0.08, h, mat(0x2B2833)); post.position.y = h / 2; g.add(post);
     const head = box(0.5, 0.16, 0.3, mat(0x2B2833)); head.position.set(0.2, h, 0); g.add(head);
     const bulb = box(0.36, 0.06, 0.2, lit(0xFFD58A)); bulb.position.set(0.2, h - 0.1, 0); g.add(bulb);
-    g.position.set(x, 0, z); add(g); halo(x + 0.2, h - 0.1, z + 0.2, 3.2); return g;
+    g.position.set(x, 0, z); add(g); halo(x + 0.2, h - 0.1, z + 0.2, 1.3); return g;
   };
   const person = (x: number, z: number, col: number, h = 1) => {
-    const g = new THREE.Group(); const b = capsule(0.17 * h, 0.6 * h, mat(col)); b.position.y = 0.75 * h; g.add(b);
-    const hd = sphere(0.13 * h, mat(0xA8693F)); hd.position.y = 1.35 * h; g.add(hd); const hr = sphere(0.135 * h, mat(0x14110F), 10); hr.scale.y = 0.6; hr.position.y = 1.42 * h; g.add(hr);
+    const g = new THREE.Group();
+    const cloth = mat(col), skin = mat(0xA8693F);
+    g.add(at(capsule(0.16 * h, 0.35 * h, cloth), 0, 0.88 * h, 0));
+    g.add(at(sphere(0.13 * h, skin, 12), 0, 1.3 * h, 0));
+    for (const sign of [-1, 1]) {
+      g.add(at(capsule(0.055 * h, 0.43 * h, mat(0x292E34)), sign * 0.085 * h, 0.31 * h, 0));
+      const arm = capsule(0.045 * h, 0.36 * h, cloth); arm.rotation.z = sign * 0.12; g.add(at(arm, sign * 0.2 * h, 0.8 * h, 0));
+    }
     g.position.set(x, 0, z); return add(g);
   };
   const building = (x: number, z: number, w: number, h: number, d: number, col: number, opts: { windows?: number; tank?: boolean; balcony?: boolean; shutter?: boolean } = {}) => {
@@ -198,7 +204,7 @@ export function buildWorld(scene: THREE.Scene): World {
     }
     const poles: number[] = [];
     for (let i = 0; i < 8; i++) { const x = o + 2 + i * 9; add(at(cyl(0.07, 0.09, 6.5, mat(0x8C857A), 8), x, 3.25, -3.2)); add(at(box(0.08, 0.08, 1.6, mat(0x8C857A)), x, 6.1, -3.2)); poles.push(x); }
-    const wireM = new THREE.LineBasicMaterial({ color: 0x3A332C });
+    const wireM = new THREE.LineBasicMaterial({ color: 0x796D5B, transparent: true, opacity: 0.25 });
     for (let i = 0; i < poles.length - 1; i++) for (const dz of [-0.7, 0, 0.7]) add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 17 }, (_, k) => new THREE.Vector3(poles[i] + (k / 16) * 9, 6.1 - Math.sin((k / 16) * Math.PI) * 0.45, -3.2 + dz))), wireM));
     [[-14, 7, 24], [8, 5, 20], [30, 8, 26], [54, 6, 22]].forEach(([x, h, w], i) => { const hill = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(i % 2 ? 0x9FA58E : 0x8E977F, { r: 1 })); hill.scale.set(w, h, 6); hill.position.set(o + x, -0.2, -52 - (i % 2) * 6); add(hill); });
   }
@@ -319,6 +325,20 @@ export function buildWorld(scene: THREE.Scene): World {
       riverShimmers.push(strip);
       add(at(strip, sx, 0.06, -8 - R() * 18));
     }
+    // The London Eye: a quiet landmark across the water, behind the final scene.
+    const eye = new THREE.Group();
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(5.5, 0.045, 6, 80), mat(0xC5C4B4, { e: 0xC7AF8A, ei: 0.18, m: 0.3, r: 0.6 }));
+    eye.add(rim);
+    const spokePoints: THREE.Vector3[] = [];
+    for (let i = 0; i < 24; i++) {
+      const a = i * Math.PI * 2 / 24;
+      spokePoints.push(new THREE.Vector3(), new THREE.Vector3(Math.cos(a) * 5.5, Math.sin(a) * 5.5, 0));
+      const pod = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), mat(0xD8C9AE, { e: 0xB69869, ei: 0.25 }));
+      pod.position.set(Math.cos(a) * 5.5, Math.sin(a) * 5.5, 0); eye.add(pod);
+    }
+    eye.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(spokePoints), new THREE.LineBasicMaterial({ color: 0xB4AC9B, transparent: true, opacity: 0.4 })));
+    const support = box(0.18, 8, 0.18, mat(0xB4AC9B)); support.position.set(-1.3, -3.7, 0); support.rotation.z = -0.32; eye.add(support);
+    eye.position.set(o + 42, 8, -29); add(eye);
     // far bank skyline
     const win = lit(0xF2A93B);
     for (let i = 0; i < 14; i++) { const w = 4 + R() * 4, h = 8 + R() * 22, x = o + i * 5.6;
@@ -333,25 +353,15 @@ export function buildWorld(scene: THREE.Scene): World {
       g.add(at(box(1.0, 2.0, 0.05, mat(0x1E1E2A)), 0, 1.0, 2.03)); g.position.set(x, 0, -9); add(g); }
     for (let i = 0; i < 6; i++) lamp(o + 4 + i * 12, -4.2);
   }
-  const bus = doubleDecker(ox(5) + 4, -1.5);
+  // Traffic stays on the far bank, outside both the water and the character's key light.
+  const farRoad = new THREE.Mesh(new THREE.PlaneGeometry(SPAN, 3), mat(0x242B35, { r: 0.85 }));
+  farRoad.rotation.x = -Math.PI / 2; farRoad.position.set(ox(5) + SPAN / 2, 0.04, -32.8); add(farRoad);
+  const bus = doubleDecker(ox(5) + 4, -32.8);
 
-  /* ---------- foreground posts, between camera and the road ---------- */
-  {
-    const branch = cyl(0.05, 0.1, 3.4, mat(0x5A4430), 8);
-    branch.rotation.z = 1.15; branch.position.set(ox(0) + 18, 2.5, 4.0); add(branch);
-    add(at(sphere(0.55, mat(0x3F6232), 10), ox(0) + 19.3, 3.5, 4.05));
-    add(at(cyl(0.07, 0.07, 1.35, mat(0x3A3530), 8), ox(1) + 24, 0.68, 3.8));
-    add(at(box(1.6, 0.08, 0.08, mat(0xC8382C)), ox(1) + 24, 1.15, 3.8));
-    add(at(cyl(0.07, 0.09, 5.2, mat(0x6E6A64), 8), ox(2) + 16, 2.6, 4.1));
-    add(at(box(2.4, 0.06, 0.06, mat(0x2A2622)), ox(2) + 17.1, 4.6, 4.1));
-    add(at(box(0.7, 5.4, 0.7, mat(0xB2A592)), ox(3) + 14, 2.7, 3.9));
-    lamp(ox(4) + 22, 4.05, 3.4);
-    add(at(cyl(0.06, 0.07, 1.05, mat(0x3A3E4E), 8), ox(5) + 18, 0.52, 3.7));
-    add(at(box(2.2, 0.06, 0.05, mat(0x3A3E4E)), ox(5) + 18.6, 0.95, 3.7));
-  }
+  // Keep the road's viewing corridor clear: scenery never sits between the camera and the walker.
 
   /* ---------- weather and life ---------- */
-  const RAIN = 900;
+  const RAIN = 420;
   const rainGeo = new THREE.BufferGeometry();
   const rainPts = new Float32Array(RAIN * 6);
   for (let i = 0; i < RAIN; i++) {

@@ -12,9 +12,9 @@ const Grade = {
     tDiffuse: { value: null },
     time: { value: 0 },
     vignette: { value: 0.32 },
-    grain: { value: 0.035 },
+    grain: { value: 0.006 },
     warmth: { value: 0 },
-    aberration: { value: 0.0012 },
+    aberration: { value: 0.00012 },
     fade: { value: 0 },
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
@@ -39,46 +39,53 @@ const Grade = {
 export type Quality = 0 | 1 | 2; // 0 plain, 1 bloom and grade, 2 everything
 
 export function createPost(r: THREE.WebGLRenderer, scene: THREE.Scene, cam: THREE.PerspectiveCamera, quality: Quality) {
-  const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
-  const composer = new EffectComposer(r, target);
-  composer.addPass(new RenderPass(scene, cam));
-  const ao = new GTAOPass(scene, cam, 1, 1);
-  ao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.4, thickness: 1.2, scale: 1, samples: 12 });
-  ao.blendIntensity = 0.85;
-  composer.addPass(ao);
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.3, 0.55, 0.82);
-  composer.addPass(bloom);
-  const grade = new ShaderPass(Grade);
-  composer.addPass(grade);
-  composer.addPass(new OutputPass());
-
   let q = quality, fadeLevel = 0;
-  const apply = () => { ao.enabled = q >= 2; bloom.enabled = q >= 1; grade.enabled = q >= 1; };
-  apply();
-
+  let composer: EffectComposer | undefined;
+  let ao: GTAOPass | undefined;
+  let bloom: UnrealBloomPass | undefined;
+  let grade: ShaderPass | undefined;
+  let width = 1, height = 1, pixelRatio = 1;
+  const ensure = () => {
+    if (q === 0 || composer) return;
+    const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 0 });
+    composer = new EffectComposer(r, target);
+    composer.addPass(new RenderPass(scene, cam));
+    if (q === 2) {
+      ao = new GTAOPass(scene, cam, 1, 1);
+      ao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.4, thickness: 0.6, scale: 1, samples: 8 });
+      ao.blendIntensity = 0.55; composer.addPass(ao);
+    }
+    bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.18, 0.45, 1.05);
+    grade = new ShaderPass(Grade);
+    composer.addPass(bloom); composer.addPass(grade); composer.addPass(new OutputPass());
+    composer.setPixelRatio(pixelRatio); composer.setSize(width, height);
+    ao?.setSize(Math.round(width * pixelRatio * 0.5), Math.round(height * pixelRatio * 0.5));
+  };
+  const dispose = () => {
+    composer?.passes.forEach((pass) => pass.dispose()); composer?.dispose();
+    composer = undefined; ao = undefined; bloom = undefined; grade = undefined;
+  };
+  ensure();
   return {
     get quality() { return q; },
-    setQuality(n: Quality) { q = n; apply(); },
+    setQuality(n: Quality) { if (n === q) return; dispose(); q = n; ensure(); },
     setSize(w: number, h: number, ratio: number) {
-      composer.setPixelRatio(ratio); composer.setSize(w, h);
-      // Bloom and AO at half resolution: they are soft anyway, and it halves their cost.
-      bloom.resolution.set(w * ratio * 0.5, h * ratio * 0.5);
-      ao.setSize(Math.round(w * ratio * 0.5), Math.round(h * ratio * 0.5));
+      width = w; height = h; pixelRatio = ratio;
+      composer?.setPixelRatio(ratio); composer?.setSize(w, h);
+      ao?.setSize(Math.round(w * ratio * 0.5), Math.round(h * ratio * 0.5));
     },
-    // night 0..1 drives how much the lights glow.
     update(t: number, night: number, warmth: number, fade = 0) {
-      bloom.strength = 0.14 + night * 0.32;
-      bloom.threshold = 0.92 - night * 0.08;
-      grade.uniforms.time.value = t;
-      grade.uniforms.warmth.value = warmth;
-      grade.uniforms.vignette.value = 0.26 + night * 0.18;
-      grade.uniforms.fade.value = fade;
+      if (bloom) { bloom.strength = 0.08 + night * 0.12; bloom.threshold = 1.05; }
+      if (grade) {
+        grade.uniforms.time.value = t; grade.uniforms.warmth.value = warmth * 0.35;
+        grade.uniforms.vignette.value = 0.12 + night * 0.08; grade.uniforms.fade.value = fade;
+      }
       fadeLevel = fade;
     },
     render(dt: number) {
-      // The plain path has no grade pass, so a cut dips the canvas itself.
-      if (q === 0) { r.render(scene, cam); if (fadeLevel > 0) r.domElement.style.transition = 'none'; r.domElement.style.opacity = String(1 - fadeLevel); }
-      else { r.domElement.style.opacity = ''; composer.render(dt); }
+      if (q === 0) { r.render(scene, cam); r.domElement.style.transition = 'none'; r.domElement.style.opacity = String(1 - fadeLevel); }
+      else { r.domElement.style.opacity = ''; composer!.render(dt); }
     },
+    dispose,
   };
 }
