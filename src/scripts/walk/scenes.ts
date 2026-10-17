@@ -295,13 +295,18 @@ export function buildWorld(scene: THREE.Scene): World {
       const shape = new THREE.Shape(); shape.moveTo(-14.6, 0); shape.lineTo(0, 4); shape.lineTo(14.6, 0); shape.lineTo(-14.6, 0);
       const roof = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 8.6, bevelEnabled: false }), mat(0x5E4F44)); roof.position.set(0, 9, -4.3); roof.castShadow = true; g.add(roof);
       for (let k = 0; k < 8; k++) { const x = -12 + k * 3.4;
-        g.add(at(box(2.0, 4.6, 0.1, lit(0xF2C27A)), x, 2.9, 4.05));
+        g.add(at(box(2.0, 4.6, 0.1, lit(0xE8B470)), x, 2.9, 4.05));
+        // stone mullion and transoms, so each window reads as tall leaded glass rather than a flat panel
+        const stone = mat(0x9C8977, { r: 0.95 });
+        g.add(at(box(0.14, 4.6, 0.14, stone), x, 2.9, 4.12));
+        for (const ty of [1.7, 3.3, 4.6]) g.add(at(box(2.0, 0.12, 0.14, stone), x, ty, 4.12));
         const arch = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.12, 16, 1, false, -Math.PI / 2, Math.PI), lit(0xF2C27A)); arch.rotation.x = Math.PI / 2; arch.rotation.z = Math.PI / 2; arch.position.set(x, 5.2, 4.06); g.add(arch);
         g.add(at(box(0.6, 6.6, 0.4, mat(0x9C8977)), x + 1.7, 3.3, 4.2)); }
       g.add(at(box(3.4, 6, 3.4, mat(0x7E6B5C)), 0, 12, 0)); g.add(at(cyl(1.0, 1.0, 0.1, mat(0xF3EEE4)), 0, 13, 1.75)); (g.children[g.children.length - 1] as THREE.Mesh).rotation.x = Math.PI / 2;
       g.position.set(o + 34, 0, -14); add(g); }
     for (let i = 0; i < 6; i++) lamp(o + 6 + i * 12, -2.6);
-    for (let k = 0; k < 3; k++) { person(o + 18 + k * 9, -4 - (k % 2), 0x2B2833); add(at(new THREE.Mesh(new THREE.SphereGeometry(0.55, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat([0x2F5D7C, 0x7A2E35, 0x2E4A3A][k])), o + 18 + k * 9, 1.9, -4 - (k % 2))); }
+    // People under umbrellas, kept clear of the stretch he walks so nobody appears to stand inside him.
+    [[o + 6, -5.5], [o + 42, -6.5], [o + 50, -5.5]].forEach(([px, pz], k) => { person(px, pz, 0x2B2833); add(at(new THREE.Mesh(new THREE.SphereGeometry(0.55, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat([0x2F5D7C, 0x7A2E35, 0x2E4A3A][k])), px, 1.9, pz)); });
     [[-6, 6, 26], [24, 5, 22], [56, 7, 28]].forEach(([x, h, w]) => { const hill = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x4C4566, { r: 1 })); hill.scale.set(w, h, 6); hill.position.set(o + x, -0.2, -50); add(hill); });
   }
   const plane = new THREE.Group(); {

@@ -248,10 +248,18 @@ export function startWalk(ui: WalkUI) {
   const phoneAt = new THREE.Vector3();
   const ps: PoseState = { phase: 0, moving: 0, mode: 'walk', t: 0, time: 0, look: 0, dt: 0, signedSpeed: 0, dx: 0 };
 
+  // When nobody has scrolled or moved the pointer for a few seconds, the world keeps breathing at a third of
+  // the frame rate: the ambient life still moves, and phones keep their battery.
+  let lastActive = performance.now(), idleTick = 0;
+  const wake = () => { lastActive = performance.now(); };
+  addEventListener('scroll', wake, { passive: true });
+  addEventListener('pointermove', wake, { passive: true });
+
   const frame = (now: number) => {
     if (stopped) return;
     requestAnimationFrame(frame);
     if (!visible || document.hidden) { last = now; return; }
+    if (now - lastActive > 4500 && cutT < 0 && (endT === 0 || endT > 4) && ++idleTick % 3 !== 0) return;
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
     const t = now / 1000;
     fit();
