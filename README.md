@@ -1,26 +1,28 @@
-# Sumith Bhandari — Portfolio
+# Sumith Bhandari, portfolio
 
-Personal portfolio built with Flutter web.
+Source for https://sumithsb.github.io/portfolio/, a one-page static site built with [Astro](https://astro.build).
 
-- Live: https://sumithsb.github.io/portfolio/
-- Content lives in `lib/widgets/*_section.dart`
-- CVs are bundled from the repo root (see `pubspec.yaml` assets)
-
-## Run locally
+## Run it
 
 ```sh
-flutter pub get
-flutter run -d chrome
+npm ci
+npm run dev       # http://localhost:4321/portfolio/
+npm run build     # static output in dist/
+npm run preview   # serve dist/ at /portfolio/
 ```
 
-## Checks
+Node 20 or newer.
 
-```sh
-flutter analyze
-flutter test
-```
+## Where things live
+
+- `src/pages/index.astro`: all page copy and sections
+- `src/layouts/Base.astro`: head, meta tags, Open Graph and JSON-LD
+- `src/styles/global.css`: the only stylesheet (light and dark themes)
+- `public/media/`: Claude Anchor demo video and screenshots, Brainvault logo
+- `public/fonts/`: Schibsted Grotesk (variable, latin subset, SIL OFL)
+
+The CV links appear automatically once `public/Sumith_Bhandari_CV.pdf` exists.
 
 ## Deploy
 
-Pushing to `main` runs `.github/workflows/deploy-pages.yml`, which analyzes, tests,
-builds with `--base-href /portfolio/` and publishes to the `pages` branch.
+Every push to `main` runs `.github/workflows/deploy-pages.yml`: it installs, builds and publishes `dist/` to the `pages` branch, which GitHub Pages serves at `/portfolio/`.

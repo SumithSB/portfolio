@@ -1,4 +1,4 @@
-# Build Flutter web and push to "pages" branch. GitHub Pages serves from that branch.
+# Build the Astro site and push dist/ to the "pages" branch. GitHub Pages serves from that branch.
 # Project URL: https://sumithsb.github.io/portfolio/
 # Settings → Pages: Source = "Deploy from a branch", Branch = pages, Folder = / (root).
 
@@ -9,9 +9,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  BASE_HREF: "/portfolio/"
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -21,29 +18,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          flutter-version: "3.27.0"
-          channel: "stable"
-          cache: true
+          node-version: 22
+          cache: npm
 
-      - name: Get dependencies
-        run: flutter pub get
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Analyze
-        run: flutter analyze
-
-      - name: Test
-        run: flutter test
-
-      - name: Build web
-        run: flutter build web --release --base-href "${{ env.BASE_HREF }}"
+      - name: Build site
+        run: npm run build
 
       - name: Deploy to pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: build/web
+          publish_dir: dist
           publish_branch: pages
           force_orphan: true

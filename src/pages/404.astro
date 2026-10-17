@@ -1,0 +1,11 @@
+---
+import Base from '../layouts/Base.astro';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<Base title="Page not found | Sumith Bhandari" description="This page does not exist." path="/404" noindex>
+  <main id="main" class="wrap notfound">
+    <h1>Page not found</h1>
+    <p>This page does not exist or has moved.</p>
+    <p><a href={`${base}/`}>Go to the home page</a></p>
+  </main>
+</Base>

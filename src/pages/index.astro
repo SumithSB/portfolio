@@ -1,0 +1,466 @@
+---
+import fs from 'node:fs';
+import Base from '../layouts/Base.astro';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const m = (file: string) => `${base}/media/${file}`;
+const year = new Date().getFullYear();
+
+// CV links appear only once public/Sumith_Bhandari_CV.pdf exists.
+const cvFile = 'Sumith_Bhandari_CV.pdf';
+const hasCv = fs.existsSync(new URL(`../../public/${cvFile}`, import.meta.url));
+const cvHref = `${base}/${cvFile}`;
+
+const email = 'sumithsbhandari@gmail.com';
+const links = {
+  github: 'https://github.com/SumithSB',
+  linkedin: 'https://linkedin.com/in/sumith-sadanand-bhandari',
+  x: 'https://x.com/SumithSBhandari',
+};
+---
+<Base
+  title="Sumith Bhandari | AI Software Engineer, London"
+  description="AI Software Engineer in London. 4+ years building production backend and AI agent systems in Python and TypeScript. Creator of Claude Anchor and Brainvault."
+>
+  <a class="skip" href="#main">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a class="wordmark" href="#top">Sumith Bhandari</a>
+      <nav aria-label="Main">
+        <ul>
+          <li><a href="#projects">Projects</a></li>
+          <li><a href="#experience">Experience</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#contact">Contact</a></li>
+          {hasCv && <li><a class="nav-cv" href={cvHref} download>CV</a></li>}
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="hero" id="top">
+      <div class="wrap">
+        <p class="eyebrow">Sumith Bhandari · London, UK</p>
+        <h1>I build AI agents that run in production, and the backends behind them.</h1>
+        <p class="tagline">AI Software Engineer in London. 4+ years of production backend and AI agent work in Python and TypeScript.</p>
+        <ul class="proof">
+          <li><a href="#exp-goodspeed">A Slack AI agent used daily by 16+ people</a></li>
+          <li><a href="#exp-visiminds">A security testing pipeline cut from about 4 hours to under 15 minutes</a></li>
+          <li><a href="#exp-techmachinery">94% extraction accuracy on a 50-document test set for engineering specs</a></li>
+        </ul>
+        <div class="actions">
+          <a class="btn" href="#projects">See my projects</a>
+          {hasCv && <a class="btn secondary" href={cvHref} download>Download CV</a>}
+          <a href={`mailto:${email}`}>{email}</a>
+        </div>
+        <p class="availability">Open to AI Software Engineer, Applied AI and Forward Deployed Engineer roles in London. Contract or permanent.</p>
+      </div>
+    </div>
+
+    <section id="projects" aria-labelledby="projects-h">
+      <div class="wrap">
+        <h2 id="projects-h">Projects</h2>
+        <p class="intro">Things I've built and published. The code is public.</p>
+
+        <div class="projects">
+          <article class="card" aria-labelledby="p-anchor">
+            <div class="media">
+              <video
+                class="autoplay"
+                muted
+                loop
+                playsinline
+                controls
+                preload="none"
+                width="1280"
+                height="720"
+                poster={m('tour.jpg')}
+                aria-label="Claude Anchor menu showing several Claude accounts, folder rules and the 5-hour and weekly limit rings."
+              >
+                <source src={m('tour-silent.webm')} type="video/webm" />
+                <source src={m('tour-silent.mp4')} type="video/mp4" />
+              </video>
+            </div>
+            <p class="media-note">
+              A 26-second tour of Claude Anchor. <a href="https://github.com/SumithSB/claude-anchor/blob/main/docs/tour.mp4">Watch with sound</a>
+            </p>
+            <div>
+              <h3 id="p-anchor">Claude Anchor</h3>
+              <p class="summary">Pin a folder to a Claude account. Claude Code then uses the right account in your terminal, VS Code and Cursor.</p>
+            </div>
+            <p class="outcome">3 platforms · 5 shells and editors · 2 rate-limit windows tracked</p>
+            <ul class="tags" aria-label="Stack">
+              <li>Swift</li><li>SwiftUI</li><li>Rust</li><li>Tauri</li><li>Shell scripting</li><li>Anthropic OAuth usage API</li><li>Homebrew</li>
+            </ul>
+            <div class="links">
+              <a href="https://github.com/SumithSB/claude-anchor">Claude Anchor on GitHub</a>
+              <a href="https://x.com/SumithSBhandari/status/2110735490886365441">Launch post on X</a>
+            </div>
+            <details>
+              <summary>Read the case study</summary>
+              <div class="case">
+                <div>
+                  <h4>The problem</h4>
+                  <p>I use different Claude accounts for different kinds of work, like work and personal. Claude Code only knows one login at a time. Switching meant logging out and back in, and it was easy to end up using the wrong account in the wrong project.</p>
+                </div>
+                <div>
+                  <h4>What I built</h4>
+                  <p>A desktop app that keeps the right Claude account for each kind of work. You pin a folder to an account once. From then on, opening that folder in a terminal, VS Code or Cursor uses that account, with no manual switching. It runs as a menu bar app on macOS and a tray app on Windows and Linux, with an <code>anchor</code> command line tool.</p>
+                </div>
+                <div>
+                  <h4>How it works</h4>
+                  <ul>
+                    <li>Each extra account gets its own Claude Code config folder. Shared settings, skills and plugins are linked in, so every account feels the same.</li>
+                    <li>A small routes file maps folders to accounts. The longest matching folder wins, and there is a default for everything else.</li>
+                    <li>A shell hook picks the account when you run <code>claude</code>. VS Code and Cursor are routed through Claude Code's process wrapper setting.</li>
+                    <li>Conversation history is shared per folder, so you can continue a conversation on another account with its history.</li>
+                    <li>Because it already knows all your accounts, it also shows each one's 5-hour and weekly limits, and can move new sessions to an account with headroom so you don't stall at the limit.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4>How I checked it</h4>
+                  <ul>
+                    <li>No telemetry. The only network traffic is to Anthropic's usage endpoint.</li>
+                    <li>Login tokens are read only to check limits. They are never stored, logged or sent anywhere else.</li>
+                    <li>Installers verify a SHA-256 checksum before installing. Your existing Claude Code folder is never changed, and editor settings are backed up before they are edited.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4>Outcome</h4>
+                  <ul>
+                    <li>Runs on 3 platforms: macOS, Windows and Linux.</li>
+                    <li>Works in 5 shells and editors: zsh, bash, PowerShell, VS Code and Cursor.</li>
+                    <li>Tracks 2 rate-limit windows per account: 5-hour and weekly.</li>
+                    <li>Open source under MIT. Install with Homebrew or a checksum-verified script.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4>Limits and what's next</h4>
+                  <p>Unofficial and not affiliated with Anthropic. It relies on Claude Code behaviour that isn't documented and could change. A running session can't change account; new sessions follow the rules. Next on the roadmap: more shells (fish, cmd.exe) and other coding agent CLIs.</p>
+                </div>
+                <div class="gallery">
+                  <figure>
+                    <picture>
+                      <source srcset={m('popover-light.webp')} type="image/webp" />
+                      <img src={m('popover-light.png')} width="680" height="2192" loading="lazy" alt="Claude Anchor menu." />
+                    </picture>
+                    <figcaption>Menu</figcaption>
+                  </figure>
+                  <figure>
+                    <picture>
+                      <source srcset={m('popover-accounts.webp')} type="image/webp" />
+                      <img src={m('popover-accounts.png')} width="680" height="1280" loading="lazy" alt="Claude Anchor accounts view." />
+                    </picture>
+                    <figcaption>Accounts</figcaption>
+                  </figure>
+                  <figure>
+                    <picture>
+                      <source srcset={m('popover-rules.webp')} type="image/webp" />
+                      <img src={m('popover-rules.png')} width="680" height="1280" loading="lazy" alt="Claude Anchor folder rules view." />
+                    </picture>
+                    <figcaption>Folder rules</figcaption>
+                  </figure>
+                </div>
+              </div>
+            </details>
+          </article>
+
+          <article class="card" aria-labelledby="p-brainvault">
+            <div class="media logo">
+              <img src={m('brainvault-logo.svg')} width="140" height="140" alt="" loading="lazy" />
+              <pre aria-label="Install Brainvault"><code>pip install brainvault
+brainvault install</code></pre>
+            </div>
+            <div>
+              <h3 id="p-brainvault">Brainvault</h3>
+              <p class="summary">Local memory for AI coding agents. Decisions and context carry over between sessions, with no cloud.</p>
+            </div>
+            <p class="outcome">On PyPI · 12 MCP tools · local SQLite, no cloud</p>
+            <ul class="tags" aria-label="Stack">
+              <li>Python</li><li>SQLite</li><li>FTS5</li><li>MCP</li><li>fastembed</li><li>sqlite-vec</li>
+            </ul>
+            <div class="links">
+              <a href="https://github.com/SumithSB/brainvault">Brainvault on GitHub</a>
+              <a href="https://pypi.org/project/brainvault/">Brainvault on PyPI</a>
+            </div>
+            <details>
+              <summary>Read the case study</summary>
+              <div class="case">
+                <div>
+                  <h4>The problem</h4>
+                  <p>Coding agents like Claude Code and Cursor start every session with no memory. You end up explaining the same decisions, bugs and project facts again and again.</p>
+                </div>
+                <div>
+                  <h4>What I built</h4>
+                  <p>An open-source memory layer that gives coding agents persistent memory on your own machine. It's one SQLite file, exposed to the agent through MCP tools, and kept up to date by hooks that run after each agent turn. It's published on PyPI.</p>
+                </div>
+                <div>
+                  <h4>How it works</h4>
+                  <ul>
+                    <li>12 MCP tools the agent can call, including <code>get_my_context</code>, <code>search_memory</code>, <code>save_memory</code>, <code>reflect</code> and <code>record_outcome</code>.</li>
+                    <li>Full-text search with SQLite FTS5, with optional semantic search using fastembed and sqlite-vec.</li>
+                    <li>Hooks after each turn save session notes and scan git activity, so the vault stays current without manual steps.</li>
+                    <li>A CLI with 20+ commands. <code>bootstrap</code> and <code>bootstrap-git</code> seed the vault from old session transcripts and git history, and are safe to re-run. <code>doctor</code> checks the setup.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4>How I checked it</h4>
+                  <ul>
+                    <li>Test suite runs in CI on GitHub Actions.</li>
+                    <li><code>brainvault doctor</code> checks that the MCP server and hooks are wired up correctly.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4>Outcome</h4>
+                  <ul>
+                    <li>Published on PyPI: <code>pip install brainvault</code>.</li>
+                    <li>12 MCP tools and 20+ CLI commands.</li>
+                    <li>Works with Claude Code and Cursor.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4>Limits and what's next</h4>
+                  <p>Best in Claude Code. Cursor works, but MCP tools are only available in agent mode and some models skip the memory rules. It is not cloud sync or a team wiki, and it does not embed every line of your repo.</p>
+                </div>
+              </div>
+            </details>
+          </article>
+
+          <article class="card" aria-labelledby="p-fashion">
+            <div>
+              <h3 id="p-fashion">Fashion AI</h3>
+              <p class="summary">A mobile styling assistant that matches clothes to your skin tone, body type and occasion. MSc dissertation, Best Technical Project 2026.</p>
+            </div>
+            <p class="outcome">Best Technical Project 2026 · RAG MRR@6 0.91 · 59,447-product catalogue</p>
+            <ul class="tags" aria-label="Stack">
+              <li>Flutter</li><li>FastAPI</li><li>PostgreSQL</li><li>pgvector</li><li>GCP (Compute Engine)</li><li>MediaPipe</li><li>OpenCV</li><li>LLM APIs</li><li>RAG</li>
+            </ul>
+            <details>
+              <summary>Read the case study</summary>
+              <div class="case">
+                <div>
+                  <h4>The problem</h4>
+                  <p>Most people have no clear way to know which colours and styles actually flatter them. I wanted recommendations that start from the user's own skin tone and body type, plus a chat that can explain the advice.</p>
+                </div>
+                <div>
+                  <h4>What I built</h4>
+                  <p>An end-to-end mobile app in Flutter with a FastAPI backend. It has three parts: a skin tone analysis pipeline, a recommendation engine over a large product catalogue, and a conversational styling assistant built on retrieval.</p>
+                </div>
+                <div>
+                  <h4>How it works</h4>
+                  <ul>
+                    <li>Skin tone analysis with MediaPipe and OpenCV, using LAB colour science (ITA and CIEDE2000) to map to the Monk Skin Tone scale.</li>
+                    <li>A recommender that ranks a 59,447-product H&amp;M catalogue with a weighted score: colour compatibility 40%, style 30%, body type 20%, occasion 10%. MMR reranking keeps results varied.</li>
+                    <li>A RAG styling chat using hybrid dense and BM25 retrieval over an 86-source knowledge base, stored in PostgreSQL with pgvector.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4>How I checked it</h4>
+                  <ul>
+                    <li>Retrieval: MRR@6 of 0.91 and P@1 of 0.89 across 53 evaluation queries.</li>
+                    <li>Skin tone: validated against the MST-E dataset (1,542 images, 19 subjects). Within-one-step accuracy was 34% on a 10-class problem. That is the hard part of the system and the clearest place to improve.</li>
+                    <li>Pilot user study with 19 participants: 100% rated the guidance helpful, and clarity scored 4.68 out of 5.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4>Outcome</h4>
+                  <ul>
+                    <li>Won Best Technical Project 2026 at the University of Leicester.</li>
+                    <li>Retrieval MRR@6 of 0.91 on 53 queries.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4>Limits and what's next</h4>
+                  <p>Skin tone classification is the weakest part: 34% within one step on a 10-class problem. That is where I would put the next round of work.</p>
+                </div>
+              </div>
+            </details>
+          </article>
+        </div>
+
+        <p class="more">More on GitHub: <a href={links.github}>https://github.com/SumithSB</a></p>
+      </div>
+    </section>
+
+    <section id="experience" aria-labelledby="experience-h">
+      <div class="wrap">
+        <h2 id="experience-h">Experience</h2>
+        <div class="jobs text">
+          <article class="job" id="exp-goodspeed">
+            <h3>AI Engineer · Goodspeed Studio Ltd</h3>
+            <p class="where">London, UK · Contract, now ongoing freelance and project work · Jul 2026 to present</p>
+            <ul>
+              <li>Built and run a production Slack AI agent used daily by <strong>16+</strong> people. I added web search, file reading, channel posting, meeting notes sync, task tracker integration, end-of-day drafting, model upgrades and prompt caching.</li>
+              <li>Added human-review steps to the agent's workflows, and fixed a cross-client confidentiality boundary in the agent's multi-tenant memory.</li>
+              <li>Led the build and launch of a website AI chat agent. Before launch I ran a compliance review covering GDPR, PECR and the EU AI Act, including data retention across Anthropic, OpenAI, Supabase, Railway and HubSpot.</li>
+              <li>Built a Python lead-sourcing agent that finds and ranks commercial leads through REST and webhook integrations. After I improved deduplication it produces about <strong>20</strong> qualified opportunities a day.</li>
+              <li>Production engineering for external client platforms: Supabase Row Level Security audits, production-readiness reviews, PR review, release management and rollback drills.</li>
+            </ul>
+            <p class="stack">Python, TypeScript, Anthropic API, OpenAI API, Supabase, PostgreSQL, Railway, Vercel, Slack Bolt</p>
+          </article>
+
+          <article class="job" id="exp-visiminds">
+            <h3>Software Engineer · Visiminds Technologies</h3>
+            <p class="where">Remote, UK · Contract · Jun 2025 to Sep 2025</p>
+            <ul>
+              <li>Built a VAPT (vulnerability assessment and penetration testing) platform that runs 14 security tools, including Nmap, Nikto, Nuclei and TestSSL, and writes a structured client report. It replaced a manual analyst workflow.</li>
+              <li>Designed a five-stage pipeline (scan, parse, aggregate, correlate, report) that maps every tool's output into one vulnerability schema and removes duplicates across tools.</li>
+              <li>Added a MongoDB-backed job queue with 20 concurrent workers. Scan and report time dropped by <strong>95%</strong>, from about 4 hours to under 15 minutes. The platform runs weekly and monthly testing cycles for <strong>10+</strong> enterprise clients.</li>
+            </ul>
+            <p class="stack">Python, Flask, MongoDB, OWASP Top 10</p>
+          </article>
+
+          <article class="job" id="exp-techmachinery">
+            <h3>TechMachinery Labs</h3>
+            <p class="where">Bengaluru, India · Nov 2021 to Dec 2024</p>
+
+            <div class="role">
+              <h4>Software Engineer</h4>
+              <p class="where">Contract, full-time · Oct 2023 to Dec 2024</p>
+              <ul>
+                <li>Led backend development of Pluto, a TechMachinery platform where engineers query and design heat exchanger systems in plain language. Queries return in <strong>under 5 seconds</strong>.</li>
+                <li>Designed a multi-agent system on Strands (AWS) with 3+ agent types. It combines pgvector retrieval, a structured materials database and parsed equipment data to answer cross-domain questions.</li>
+                <li>Built a document parsing pipeline that turns unstructured engineering specs into structured JSON with 50+ fields, reaching <strong>94%</strong> extraction accuracy on a 50-document test set.</li>
+              </ul>
+            </div>
+
+            <div class="role">
+              <h4>Software Development Engineer</h4>
+              <p class="where">Jul 2022 to Sep 2023</p>
+              <ul>
+                <li>Built 10+ REST APIs in a microservices codebase, with data models, role-based access across 5 user roles, and auth middleware with unit tests.</li>
+                <li>Integrated a payment gateway with full audit trails, and moved media storage to AWS S3, replacing on-premise infrastructure.</li>
+                <li>Owned the backend on client projects from schema design to API, tests and AWS deployment with CI/CD.</li>
+              </ul>
+            </div>
+
+            <div class="role">
+              <h4>Software Development Engineer (SDE 1)</h4>
+              <p class="where">Part-time, during final year of BE · Nov 2021 to Jul 2022</p>
+              <ul>
+                <li>Built Flutter mobile apps and REST backends in Python and Node.js, with PostgreSQL and MongoDB, across several client projects.</li>
+              </ul>
+            </div>
+            <p class="stack">Python, FastAPI, Strands (AWS), PostgreSQL, pgvector, Node.js, Express.js, AWS S3, Flutter</p>
+          </article>
+
+          <article class="job" id="exp-drogher">
+            <h3>Co-Founder and Engineering Lead · Drogher Technologies Pvt Ltd</h3>
+            <p class="where">Bengaluru, India · Nov 2020 to May 2022</p>
+            <ul>
+              <li>Co-founded and built CornerCart, a quick-commerce platform that connected local stores to customers with real-time order management.</li>
+              <li>Led a team of 4. Made the call to pivot from B2C to B2B consulting, then delivered full-stack products in healthcare, food delivery and co-working.</li>
+            </ul>
+            <p class="stack">Node.js, PostgreSQL, Flutter, AWS, GitHub Actions</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="about" aria-labelledby="about-h">
+      <div class="wrap">
+        <h2 id="about-h">About</h2>
+        <div class="about text">
+          <p>I started building software for real users before I finished my degree. In 2020 I co-founded Drogher Technologies in Bengaluru. We built CornerCart, a quick-commerce app that linked local shops with customers and handled orders in real time. I led a team of 4, and later made the call to pivot from B2C to B2B consulting.</p>
+          <p>Alongside that I joined TechMachinery Labs, part-time in my final year and then full-time. I started with APIs, auth and payments. Later I led backend work on Pluto, a platform where engineers ask questions about heat exchanger design in plain language and get answers from a multi-agent system.</p>
+          <p>In 2025 I came to the UK for an MSc in Advanced Computer Science at the University of Leicester. I finished with a Distinction, and my dissertation, Fashion AI, won Best Technical Project 2026. During the MSc I also took a contract with Visiminds, where I built a security testing platform that turned a 4-hour job into a 15-minute one.</p>
+          <p>Now I'm in London, building production AI agents with Goodspeed Studio.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="skills" aria-labelledby="skills-h">
+      <div class="wrap">
+        <h2 id="skills-h">Skills</h2>
+        <dl class="skills text">
+          <div><dt>AI and agents</dt><dd>Anthropic and OpenAI APIs, multi-agent orchestration (Strands on AWS), tool-calling agents, MCP, RAG, embeddings, hybrid search (dense and BM25), prompt caching, human-review steps, retrieval evaluation (MRR, Precision@k), LangChain, Ollama</dd></div>
+          <div><dt>Backend</dt><dd>Python, TypeScript, Node.js, FastAPI, Flask, Express.js, REST APIs, webhooks, WebSockets, async APIs, job queues and concurrent workers</dd></div>
+          <div><dt>Data</dt><dd>PostgreSQL, pgvector, SQLite (FTS5, sqlite-vec), Supabase, MongoDB, MySQL, Redis</dd></div>
+          <div><dt>Cloud and delivery</dt><dd>AWS (EC2, S3, Lambda, IAM, CloudWatch, VPC), GCP, Docker, NGINX, GitHub Actions, Jenkins, Railway, Vercel</dd></div>
+          <div><dt>Quality and security</dt><dd>Pytest, unit and integration testing, production-readiness reviews, rollback drills, Row Level Security, role-based access, audit trails, OWASP Top 10, GDPR, PECR and EU AI Act reviews</dd></div>
+          <div><dt>Also</dt><dd>Swift, Rust (Tauri), Dart (Flutter), Claude Code, Cursor</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section id="education" aria-labelledby="education-h">
+      <div class="wrap">
+        <h2 id="education-h">Education</h2>
+        <div class="edu text">
+          <div>
+            <h3>MSc Advanced Computer Science, Distinction (76.67%)</h3>
+            <p>University of Leicester, UK · Jan 2025 to Jul 2026</p>
+            <p>Dissertation: Fashion AI, Best Technical Project 2026.</p>
+          </div>
+          <div>
+            <h3>BE Information Science and Engineering</h3>
+            <p>Ramaiah Institute of Technology, Bengaluru, India · Aug 2018 to Jul 2022</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact" aria-labelledby="contact-h">
+      <div class="wrap">
+        <h2 id="contact-h">Contact</h2>
+        <p class="text intro">I'm open to AI Software Engineer, Applied AI and Forward Deployed Engineer roles in London, contract or permanent. If you're building something with AI agents and need it to work in production, I'd like to hear about it.</p>
+        <ul class="contact-list">
+          <li>
+            <span class="label">Email</span>
+            <a href={`mailto:${email}`} id="email-address">{email}</a>
+            <button type="button" class="btn secondary copy" id="copy-email" hidden>Copy email</button>
+            <span class="copy-status" id="copy-status" aria-live="polite"></span>
+          </li>
+          <li><span class="label">LinkedIn</span><a href={links.linkedin}>linkedin.com/in/sumith-sadanand-bhandari</a></li>
+          <li><span class="label">GitHub</span><a href={links.github}>github.com/SumithSB</a></li>
+          <li><span class="label">X</span><a href={links.x}>x.com/SumithSBhandari</a></li>
+          {hasCv && <li><span class="label">CV</span><a href={cvHref} download>Download CV (PDF)</a></li>}
+        </ul>
+        <p class="place">London, UK</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>© {year} Sumith Bhandari</span>
+      <a href={links.github}>GitHub</a>
+      <a href={links.linkedin}>LinkedIn</a>
+      <a href={`mailto:${email}`}>Email</a>
+    </div>
+  </footer>
+
+  <script>
+    // Copy email: shown only when the clipboard API exists.
+    const btn = document.getElementById('copy-email');
+    const status = document.getElementById('copy-status');
+    if (btn && status && navigator.clipboard) {
+      btn.hidden = false;
+      btn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText('sumithsbhandari@gmail.com');
+          status.textContent = 'Copied';
+        } catch {
+          status.textContent = 'Copy failed. Select the address instead.';
+        }
+        setTimeout(() => { status.textContent = ''; }, 2500);
+      });
+    }
+
+    // Demo video: play muted while in view, unless the visitor prefers reduced motion.
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const videos = document.querySelectorAll<HTMLVideoElement>('video.autoplay');
+    if (!reduce && 'IntersectionObserver' in window) {
+      const io = new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          const v = e.target as HTMLVideoElement;
+          if (e.isIntersecting) v.play().catch(() => {});
+          else v.pause();
+        }
+      }, { threshold: 0.5 });
+      videos.forEach((v) => io.observe(v));
+    }
+  </script>
+</Base>
