@@ -4,7 +4,7 @@ import { makePerson, pose, setPersonTransition, type Person, type PoseState } fr
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { createAmbience } from './audio';
 import { createPost, type Quality } from './post';
-import { dressWorld, weather } from './dressing';
+import { dressWorld, weather, createBackdrops } from './dressing';
 import type { Sculpted } from './figure';
 import { LOOKS } from './looks';
 import { advanceRoot } from './locomotion';
@@ -134,6 +134,8 @@ export function startWalk(ui: WalkUI) {
   const world = buildWorld(scene);
   dressWorld(scene, world.nightMats); // rows of buildings, trees and road markings out to the horizon
   weather(scene); // grime, colour variation and contact darkening on every surface built so far
+  const assetBase = (document.querySelector('link[rel=icon]') as HTMLLinkElement | null)?.href.replace(/favicon\.svg.*$/, '') ?? './';
+  const backdrops = createBackdrops(scene, assetBase, RANGES.map(([rs0, rl0], i) => i * SPAN + rs0 + rl0 / 2));
 
   let ratio = Math.min(devicePixelRatio, coarse ? 1.25 : 1.5);
   // ?quality=0|1|2 pins the quality level, for checking how the walk looks on any device.
@@ -187,6 +189,7 @@ export function startWalk(ui: WalkUI) {
   };
   const r0 = ui.root.getBoundingClientRect();
   const first = place(clamp(-r0.top / Math.max(1, r0.height - innerHeight))).c;
+  backdrops.start(first);
   const order = [first, ...Array.from({ length: CHAPTERS }, (_, i) => i).filter((i) => i !== first)];
   loadTimer = setTimeout(fail, 12000);
   try {
@@ -407,9 +410,9 @@ export function startWalk(ui: WalkUI) {
     const py = reduce || coarse ? 0 : smoothPtrY * 0.045;
     const cx = x + (narrow ? 0.75 : 1.25) + px;
     const skyward = pl.tilt;
-    const cy = H * 1.05 + py + skyward * 1.4;
+    const cy = H * 0.95 + py + skyward * 1.4;
     const lookX = x - (narrow ? 0 : 1.35);
-    const lookY = H * 0.5 + skyward * skyward * 22; // up past the rooftops into the sky
+    const lookY = H * 0.78 + skyward * skyward * 22; // close to level, so the horizon and the backdrop sit in the shot
     const k = !camInit ? 1 : 1 - Math.exp(-dt * 7);
     camPos.x += (cx - camPos.x) * k; camPos.y += (cy - camPos.y) * k; camPos.z += (lensDistance + skyward * 1.5 - camPos.z) * k;
     camLook.set(lookX, lookY, 0);
@@ -418,6 +421,7 @@ export function startWalk(ui: WalkUI) {
     cam.setViewOffset(lastW, lastH, 0, narrow ? lastH * portraitShift : 0, lastW, lastH);
     cam.position.copy(camPos); cam.lookAt(camLook);
     sky.position.copy(cam.position);
+    backdrops.update(ch, cam.position.y);
     if (ui.root.dataset.caption !== String(ch)) {
       ui.root.dataset.caption = String(ch);
       const time = ui.root.querySelector('.scene-time'), place = ui.root.querySelector('.scene-location');

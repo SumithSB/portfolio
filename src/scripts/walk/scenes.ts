@@ -46,8 +46,9 @@ export function buildWorld(scene: THREE.Scene): World {
   const groundCols = [0x8DAF5E, 0x9A948A, 0x8A8378, 0x8F887C, 0x55515E, 0x1E2333];
   const roadCols = [0xC09A70, 0x5E5A56, 0x55524F, 0x5A544E, 0x3C3946, 0x1C2030];
   for (let i = 0; i < CHAPTERS; i++) {
-    const g = new THREE.Mesh(new THREE.PlaneGeometry(SPAN + 0.2, 140), detailed(mat(groundCols[i], { r: 1 }), SPAN, 140, 4));
-    g.rotation.x = -Math.PI / 2; g.position.set(ox(i) + SPAN / 2, 0, -40); g.receiveShadow = true; add(g);
+    // The ground ends 70 m back; beyond it the painted backdrop carries the land to the horizon.
+    const g = new THREE.Mesh(new THREE.PlaneGeometry(SPAN + 0.2, 100), detailed(mat(groundCols[i], { r: 1 }), SPAN, 100, 4));
+    g.rotation.x = -Math.PI / 2; g.position.set(ox(i) + SPAN / 2, 0, -20); g.receiveShadow = true; add(g);
     const road = new THREE.Mesh(new THREE.PlaneGeometry(SPAN + 0.2, 3.4), detailed(mat(roadCols[i], { r: i >= 4 ? 0.25 : 1, m: i >= 4 ? 0.2 : 0 }), SPAN, 3.4, 1.5));
     road.rotation.x = -Math.PI / 2; road.position.set(ox(i) + SPAN / 2, 0.01, 0); road.receiveShadow = true; add(road);
     if (i >= 1) { // a pavement kerb behind the walker in the city chapters
@@ -72,8 +73,8 @@ export function buildWorld(scene: THREE.Scene): World {
     return mesh;
   };
   for (let i = 1; i < CHAPTERS; i++) {
-    const ground = colorBand(12, 140, groundCols[i - 1], groundCols[i], 1);
-    ground.position.set(i * SPAN, 0.02, -40); add(ground);
+    const ground = colorBand(12, 100, groundCols[i - 1], groundCols[i], 1);
+    ground.position.set(i * SPAN, 0.02, -20); add(ground);
     const road = colorBand(12, 3.4, roadCols[i - 1], roadCols[i], i >= 4 ? 0.35 : 1);
     road.position.set(i * SPAN, 0.03, 0); add(road);
     const post = cyl(0.07, 0.09, 1.15, mat(i >= 4 ? 0xC9C3B8 : 0x8C7A62), 8);
@@ -350,8 +351,9 @@ export function buildWorld(scene: THREE.Scene): World {
       const g = new THREE.Group(); g.add(at(box(w, h, 5, mat(0x151C33, { r: 0.9 })), 0, h / 2, 0));
       const items: Array<[number, number, number]> = []; for (let f = 0; f < h / 1.8 - 1; f++) for (let c = 0; c < w / 1.2; c++) if (R() > 0.55) items.push([-w / 2 + 0.6 + c * 1.2, 1 + f * 1.8, 2.53]);
       if (items.length) { const inst = instanced(new THREE.BoxGeometry(0.5, 0.6, 0.04), win, items); inst.castShadow = false; g.add(inst); }
-      g.position.set(x, 0, -36); add(g); }
-    { const dome = new THREE.Mesh(new THREE.SphereGeometry(4, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x1B2440)); dome.position.set(o + 46, 14, -40); add(dome); add(at(box(8, 14, 8, mat(0x151C33)), o + 46, 7, -40)); add(at(cyl(0.4, 0.4, 3, mat(0x1B2440)), o + 46, 19.4, -40)); }
+      g.position.set(x, 0, -36); g.userData.farBank = true; add(g); }
+    // (the far bank is hidden once the London backdrop, with the real skyline, has loaded)
+    { const dome = new THREE.Mesh(new THREE.SphereGeometry(4, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x1B2440)); dome.position.set(o + 46, 14, -40); add(dome); const base = add(at(box(8, 14, 8, mat(0x151C33)), o + 46, 7, -40)); const spire = add(at(cyl(0.4, 0.4, 3, mat(0x1B2440)), o + 46, 19.4, -40)); for (const o3 of [dome, base, spire]) o3.userData.farBank = true; }
     // terraced houses along our side
     for (let i = 0; i < 6; i++) { const x = o + 6 + i * 5.2; const g = new THREE.Group(); g.add(at(box(5, 7, 4, mat([0x3A2F35, 0x33303F, 0x3B3530, 0x2F3340][i % 4])), 0, 3.5, 0));
       for (const [wx, wy] of [[-1.2, 2], [1.2, 2], [-1.2, 4.8], [1.2, 4.8]]) g.add(at(box(1.0, 1.3, 0.05, (i + wx + wy) % 3 > 1 ? win : mat(0x4A4F63)), wx, wy, 2.03));

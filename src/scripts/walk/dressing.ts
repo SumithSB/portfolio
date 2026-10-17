@@ -94,12 +94,12 @@ function canopyGeometry(seed: number) {
 /* ---------- the dressing, chapter by chapter ---------- */
 interface Plan { facades: Facade[]; tint: number[]; floors: [number, number]; rows: number[]; trees: number; leaf: number[]; markings: boolean }
 const PLANS: Plan[] = [
-  { facades: ['plaster'], tint: [0xF2E3C8, 0xE8D2B0, 0xD9E4D8, 0xF0D9C0], floors: [1, 2], rows: [-22, -34], trees: 26, leaf: [0x4E7A3A, 0x5E8A3E, 0x3F6232], markings: false },
+  { facades: ['plaster'], tint: [0xF2E3C8, 0xE8D2B0, 0xD9E4D8, 0xF0D9C0], floors: [1, 2], rows: [], trees: 14, leaf: [0x4E7A3A, 0x5E8A3E, 0x3F6232], markings: false },
   { facades: ['plaster'], tint: [0xE9DCC6, 0xD8E0E4, 0xF0E0C8, 0xE4D0D8, 0xCFDCCB], floors: [3, 5], rows: [-20, -32], trees: 10, leaf: [0x4E7A3A, 0x5B7F4E], markings: true },
   { facades: ['plaster', 'glass'], tint: [0xEADFCB, 0xD9D4E6, 0xF2DDBB, 0xCFE0D6], floors: [3, 7], rows: [-22, -34], trees: 14, leaf: [0x3F6E35, 0x4E7A3A], markings: true },
   { facades: ['glass', 'plaster'], tint: [0xFFFFFF, 0xE8E0D4, 0xD6E2EC], floors: [4, 10], rows: [-30, -42], trees: 16, leaf: [0x4E7A3A, 0xB5452F], markings: true },
   { facades: ['brick'], tint: [0xFFFFFF, 0xF0E4DC, 0xE0D4CC], floors: [2, 4], rows: [-24, -34], trees: 14, leaf: [0x51633A, 0x6B6A3A, 0x7A5A32], markings: true },
-  { facades: ['brick', 'glass'], tint: [0xD8D0D0, 0xC8C8D4, 0xE0D8D0], floors: [3, 8], rows: [-44, -52], trees: 12, leaf: [0x2E3E2A, 0x34452E], markings: true },
+  { facades: ['brick', 'glass'], tint: [0xD8D0D0, 0xC8C8D4, 0xE0D8D0], floors: [3, 8], rows: [], trees: 12, leaf: [0x2E3E2A, 0x34452E], markings: true }, // across the river is the real skyline, in the backdrop
 ];
 
 export function dressWorld(scene: THREE.Scene, nightMats: THREE.MeshStandardMaterial[]) {
@@ -210,4 +210,37 @@ export function weather(scene: THREE.Scene) {
     m.customProgramCacheKey = () => `weathered-${key()}`;
     m.needsUpdate = true;
   });
+}
+
+/* ---------- painted backdrops: one generated panorama per chapter, far behind the street ---------- */
+// name, and where its horizon sits as a fraction from the top of the image
+const BACKDROPS: Array<[string, number]> = [['dawn', 0.45], ['morning', 0.44], ['noon', 0.31], ['golden', 0.39], ['dusk', 0.37], ['night', 0.55]];
+const BD_WIDTH = 190, BD_ASPECT = 1376 / 768, BD_Z = -100;
+
+export function createBackdrops(scene: THREE.Scene, base: string, centres: number[]) {
+  const planes: Array<THREE.Mesh | null> = BACKDROPS.map(() => null);
+  const geo = new THREE.PlaneGeometry(BD_WIDTH, BD_WIDTH / BD_ASPECT);
+  const loader = new THREE.TextureLoader();
+  const load = (i: number) => new Promise<void>((done) => {
+    loader.load(`${base}backdrops/${BACKDROPS[i][0]}.webp`, (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, toneMapped: false }));
+      m.position.set(centres[i], 0, BD_Z); m.visible = false; scene.add(m); planes[i] = m;
+      // London's backdrop has the real skyline, so the drawn one across the river steps aside
+      if (BACKDROPS[i][0] === 'night') scene.traverse((o) => { if (o.userData.farBank) o.visible = false; });
+      done();
+    }, undefined, () => done());
+  });
+  return {
+    /** Load the given chapter first, then the rest, one at a time. */
+    start(first: number) { const order = [first, ...BACKDROPS.map((_, i) => i).filter((i) => i !== first)]; order.reduce((p, i) => p.then(() => load(i)), Promise.resolve()); },
+    /** Show the current chapter's backdrop with its horizon at the camera's eye level. */
+    update(ch: number, eyeY: number) {
+      planes.forEach((m, i) => {
+        if (!m) return;
+        m.visible = i === ch;
+        if (m.visible) m.position.y = eyeY - (BD_WIDTH / BD_ASPECT) * (0.5 - BACKDROPS[i][1]);
+      });
+    },
+  };
 }
