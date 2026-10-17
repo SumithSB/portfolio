@@ -71,11 +71,6 @@ const skills = [
             <span class="ln"><span>behind them.</span></span>
           </h1>
           <p class="tagline" data-rise>AI Software Engineer in London. 4+ years of production backend and AI agent work in Python and TypeScript.</p>
-          <ul class="proof" data-rise>
-            <li><a href="#exp-goodspeed"><b aria-hidden="true">16+</b><span>A Slack AI agent used daily by 16+ people</span></a></li>
-            <li><a href="#exp-visiminds"><b aria-hidden="true">95%</b><span>A security testing pipeline cut from about 4 hours to under 15 minutes</span></a></li>
-            <li><a href="#exp-techmachinery"><b aria-hidden="true">94%</b><span>94% extraction accuracy on a 50-document test set for engineering specs</span></a></li>
-          </ul>
           <div class="actions" data-rise>
             <a class="btn" id="magnet" href="#projects">See my projects</a>
             {hasCv && <a class="btn ghost" href={cvHref} download>Download CV</a>}
@@ -108,8 +103,6 @@ const skills = [
                 <div class="glare" id="glare"></div>
               </div>
             </div>
-            <div class="layer" data-depth="90"><span class="chip" style="left:46%; top:-3%"><i></i>3 platforms · 5 shells and editors</span></div>
-            <div class="layer" data-depth="140"><span class="chip" style="left:-6%; bottom:-14%"><i></i>2 rate-limit windows tracked</span></div>
           </div>
         </div>
       </div>
@@ -144,7 +137,6 @@ const skills = [
             <div class="txt">
               <h3 id="p-anchor">Claude Anchor</h3>
               <p class="summary">Pin a folder to a Claude account. Claude Code then uses the right account in your terminal, VS Code and Cursor.</p>
-              <p class="outcome">3 platforms · 5 shells and editors · 2 rate-limit windows tracked</p>
               <ul class="tags" aria-label="Stack">
                 <li>Swift</li><li>SwiftUI</li><li>Rust</li><li>Tauri</li><li>Shell scripting</li><li>Anthropic OAuth usage API</li><li>Homebrew</li>
               </ul>
@@ -206,7 +198,6 @@ brainvault install</code></pre>
             <div class="txt">
               <h3 id="p-brainvault">Brainvault</h3>
               <p class="summary">Local memory for AI coding agents. Decisions and context carry over between sessions, with no cloud.</p>
-              <p class="outcome">On PyPI · 12 MCP tools · local SQLite, no cloud</p>
               <ul class="tags" aria-label="Stack">
                 <li>Python</li><li>SQLite</li><li>FTS5</li><li>MCP</li><li>fastembed</li><li>sqlite-vec</li>
               </ul>
@@ -251,7 +242,6 @@ brainvault install</code></pre>
             <div class="txt">
               <h3 id="p-fashion">Fashion AI</h3>
               <p class="summary">A mobile styling assistant that matches clothes to your skin tone, body type and occasion. MSc dissertation, Best Technical Project 2026.</p>
-              <p class="outcome">Best Technical Project 2026 · RAG MRR@6 0.91 · 59,447-product catalogue</p>
               <ul class="tags" aria-label="Stack">
                 <li>Flutter</li><li>FastAPI</li><li>PostgreSQL</li><li>pgvector</li><li>GCP (Compute Engine)</li><li>MediaPipe</li><li>OpenCV</li><li>LLM APIs</li><li>RAG</li>
               </ul>
@@ -297,10 +287,10 @@ brainvault install</code></pre>
             </div>
             <div>
               <ul>
-                <li>Built and run a production Slack AI agent used daily by <strong>16+</strong> people. I added web search, file reading, channel posting, meeting notes sync, task tracker integration, end-of-day drafting, model upgrades and prompt caching.</li>
+                <li>Built and run a production Slack AI agent used daily by 16+ people. I added web search, file reading, channel posting, meeting notes sync, task tracker integration, end-of-day drafting, model upgrades and prompt caching.</li>
                 <li>Added human-review steps to the agent's workflows, and fixed a cross-client confidentiality boundary in the agent's multi-tenant memory.</li>
                 <li>Led the build and launch of a website AI chat agent. Before launch I ran a compliance review covering GDPR, PECR and the EU AI Act, including data retention across Anthropic, OpenAI, Supabase, Railway and HubSpot.</li>
-                <li>Built a Python lead-sourcing agent that finds and ranks commercial leads through REST and webhook integrations. After I improved deduplication it produces about <strong>20</strong> qualified opportunities a day.</li>
+                <li>Built a Python lead-sourcing agent that finds and ranks commercial leads through REST and webhook integrations. After I improved deduplication it produces about 20 qualified opportunities a day.</li>
                 <li>Production engineering for external client platforms: Supabase Row Level Security audits, production-readiness reviews, PR review, release management and rollback drills.</li>
               </ul>
               <p class="stack-line">Python, TypeScript, Anthropic API, OpenAI API, Supabase, PostgreSQL, Railway, Vercel, Slack Bolt</p>
@@ -316,7 +306,7 @@ brainvault install</code></pre>
               <ul>
                 <li>Built a VAPT (vulnerability assessment and penetration testing) platform that runs 14 security tools, including Nmap, Nikto, Nuclei and TestSSL, and writes a structured client report. It replaced a manual analyst workflow.</li>
                 <li>Designed a five-stage pipeline (scan, parse, aggregate, correlate, report) that maps every tool's output into one vulnerability schema and removes duplicates across tools.</li>
-                <li>Added a MongoDB-backed job queue with 20 concurrent workers. Scan and report time dropped by <strong>95%</strong>, from about 4 hours to under 15 minutes. The platform runs weekly and monthly testing cycles for <strong>10+</strong> enterprise clients.</li>
+                <li>Added a MongoDB-backed job queue with 20 concurrent workers. Scan and report time dropped by 95%, from about 4 hours to under 15 minutes. The platform runs weekly and monthly testing cycles for 10+ enterprise clients.</li>
               </ul>
               <p class="stack-line">Python, Flask, MongoDB, OWASP Top 10</p>
             </div>
@@ -332,9 +322,9 @@ brainvault install</code></pre>
                 <h4>Software Engineer</h4>
                 <p class="when">Contract, full-time · Oct 2023 to Dec 2024</p>
                 <ul>
-                  <li>Led backend development of Pluto, a TechMachinery platform where engineers query and design heat exchanger systems in plain language. Queries return in <strong>under 5 seconds</strong>.</li>
+                  <li>Led backend development of Pluto, a TechMachinery platform where engineers query and design heat exchanger systems in plain language. Queries return in under 5 seconds.</li>
                   <li>Designed a multi-agent system on Strands (AWS) with 3+ agent types. It combines pgvector retrieval, a structured materials database and parsed equipment data to answer cross-domain questions.</li>
-                  <li>Built a document parsing pipeline that turns unstructured engineering specs into structured JSON with 50+ fields, reaching <strong>94%</strong> extraction accuracy on a 50-document test set.</li>
+                  <li>Built a document parsing pipeline that turns unstructured engineering specs into structured JSON with 50+ fields, reaching 94% extraction accuracy on a 50-document test set.</li>
                 </ul>
               </div>
               <div class="role">
@@ -376,7 +366,7 @@ brainvault install</code></pre>
 
     <div class="reveal wrap" id="reveal">
       <div class="sticky"><div class="inner">
-        <p id="reveal-line">I'm an AI Software Engineer in London. I build AI agents and the APIs, data and deployments that keep them running. I work with Goodspeed Studio, where I build and run a Slack agent that 16+ people use every day. I also build open-source tools for coding agents, like Claude Anchor and Brainvault.</p>
+        <p id="reveal-line">I'm an AI Software Engineer in London. I build AI agents and the APIs, data and deployments that keep them running. I also build open-source tools for coding agents, like Claude Anchor and Brainvault.</p>
       </div></div>
     </div>
 
@@ -395,7 +385,7 @@ brainvault install</code></pre>
           <div class="step on" data-i="0"><span class="when" aria-hidden="true">Drogher</span><p>I started building software for real users before I finished my degree. In 2020 I co-founded Drogher Technologies in Bengaluru. We built CornerCart, a quick-commerce app that linked local shops with customers and handled orders in real time. I led a team of 4, and later made the call to pivot from B2C to B2B consulting.</p></div>
           <div class="step" data-i="1"><span class="when" aria-hidden="true">TechMachinery</span><p>Alongside that I joined TechMachinery Labs, part-time in my final year and then full-time. I started with APIs, auth and payments. Later I led backend work on Pluto, a platform where engineers ask questions about heat exchanger design in plain language and get answers from a multi-agent system.</p></div>
           <div class="step" data-i="2"><span class="when" aria-hidden="true">Leicester</span><p>In 2025 I came to the UK for an MSc in Advanced Computer Science at the University of Leicester. I finished with a Distinction, and my dissertation, Fashion AI, won Best Technical Project 2026. During the MSc I also took a contract with Visiminds, where I built a security testing platform that turned a 4-hour job into a 15-minute one.</p></div>
-          <div class="step" data-i="3"><span class="when" aria-hidden="true">London</span><p>Now I'm in London, building production AI agents with Goodspeed Studio.</p></div>
+          <div class="step" data-i="3"><span class="when" aria-hidden="true">London</span><p>Now I'm in London, building production AI agents.</p></div>
         </div>
       </div>
     </section>

@@ -165,13 +165,6 @@ if (reduce) {
   intro.finished.then(endIntro);
   plot.addEventListener('click', () => { intro.complete(); endIntro(); });
 
-  // Count the proof numbers up once.
-  $$('.proof b').forEach((b, i) => {
-    const raw = b.textContent || '';
-    const target = parseInt(raw, 10);
-    const suffix = raw.replace(/^\d+/, '');
-    animate(0, target, { duration: 1.6, delay: 1.6 + i * 0.1, ease: [0.33, 1, 0.68, 1], onUpdate: (v) => { b.textContent = Math.round(v) + suffix; } });
-  });
 
   // 2. Hero flow window follows the cursor; idle drift after 90 frames.
   const rig = $('#rig');
