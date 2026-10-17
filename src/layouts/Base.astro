@@ -12,16 +12,16 @@ const { title, description, path = '/', noindex = false } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const site = 'https://sumithsb.github.io/portfolio';
 const canonical = site + (path === '/' ? '/' : path);
-const ogTitle = 'Sumith Bhandari, AI Software Engineer';
-const ogDescription = 'I build AI agents that run in production, and the backends behind them. Projects include Claude Anchor and Brainvault.';
+const ogTitle = 'Sumith Bhandari';
+const ogDescription = 'A kid from a small town who kept building. A short walk through how I got to London, and the things I build now.';
 const ogImage = site + '/og-image.png';
-const ogAlt = 'Sumith Bhandari, AI Software Engineer in London.';
+const ogAlt = 'Sumith Bhandari, London.';
 
 const person = {
   '@context': 'https://schema.org',
   '@type': 'Person',
   name: 'Sumith Sadanand Bhandari',
-  jobTitle: 'AI Software Engineer',
+  jobTitle: 'AI Engineer',
   address: { '@type': 'PostalAddress', addressLocality: 'London', addressCountry: 'UK' },
   url: site + '/',
   email: 'mailto:sumithsbhandari@gmail.com',
@@ -41,7 +41,7 @@ const person = {
     <meta name="description" content={description} />
     {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
     <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#1F2930" />
+    <meta name="theme-color" content="#0D1015" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Sumith Bhandari" />
@@ -61,19 +61,8 @@ const person = {
     <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
     <link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
     <link rel="preload" href={`${base}/fonts/public-sans.woff2`} as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href={`${base}/fonts/big-shoulders-800.woff2`} as="font" type="font/woff2" crossorigin />
-    <script is:inline>
-      // Intro and motion only run with JavaScript and without a reduced-motion preference.
-      (function () {
-        var d = document.documentElement;
-        d.classList.add('js');
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { d.classList.add('rm'); }
-        else {
-          d.classList.add('intro');
-          setTimeout(function () { d.classList.remove('intro'); }, 4000);
-        }
-      })();
-    </script>
+    <link rel="preload" href={`${base}/fonts/instrument-serif.woff2`} as="font" type="font/woff2" crossorigin />
+    <script is:inline>document.documentElement.classList.add('js');</script>
     <script type="application/ld+json" set:html={JSON.stringify(person)} />
   </head>
   <body>
