@@ -19,14 +19,16 @@ const links = {
   x: 'https://x.com/SumithSBhandari',
 };
 
-// Named, minimal: where, what, when. Oldest first, so it ends where the walk ends.
-const journey = [
-  { when: 'Aug 2018 to Jul 2022', place: 'Bengaluru', org: 'Ramaiah Institute of Technology', roles: ['BE Information Science'], note: 'Where I started out feeling behind, and started building anyway.' },
-  { when: 'Nov 2020 to May 2022', place: 'Bengaluru', org: 'Drogher Technologies', roles: ['Co-Founder and Engineering Lead'], note: 'The company that came out of our lockdown app. Led the engineering until we closed it.' },
-  { when: 'Nov 2021 to Dec 2024', place: 'Bengaluru', org: 'TechMachinery Labs', roles: ['Software Engineer', 'Software Development Engineer', 'SDE 1, part-time'], note: 'Joined as an intern, stayed for three years. Grew from building APIs to leading backend work on an AI platform.' },
-  { when: 'Jan 2025 to Jul 2026', place: 'Leicester', org: 'University of Leicester', roles: ['MSc Advanced Computer Science'], note: 'A Master\'s, alongside part-time work and evenings building with my old team.' },
-  { when: 'Jun 2025 to Sep 2025', place: 'Remote, UK', org: 'Visiminds Technologies', roles: ['Software Engineer'], note: 'A short contract during my Master\'s, building a security testing platform.' },
+// Named, minimal: where, what, when. Work and study kept apart, newest first.
+const work = [
   { when: 'Jul 2026 to now', place: 'London', org: 'Goodspeed Studio', roles: ['AI Engineer'], note: 'Building AI agents.' },
+  { when: 'Jun 2025 to Sep 2025', place: 'Remote, UK', org: 'Visiminds Technologies', roles: ['Software Engineer'], note: 'A short contract during my Master\'s, building a security testing platform.' },
+  { when: 'Nov 2021 to Dec 2024', place: 'Bengaluru', org: 'TechMachinery Labs', roles: ['Software Engineer', 'Software Development Engineer', 'SDE 1, part-time'], note: 'Joined as an intern, stayed for three years. Grew from building APIs to leading backend work on an AI platform.' },
+  { when: 'Nov 2020 to May 2022', place: 'Bengaluru', org: 'Drogher Technologies', roles: ['Co-Founder and Engineering Lead'], note: 'The company that came out of our lockdown app. Led the engineering until we closed it.' },
+];
+const study = [
+  { when: 'Jan 2025 to Jul 2026', place: 'Leicester', org: 'University of Leicester', roles: ['MSc Advanced Computer Science'], note: 'A Master\'s, alongside part-time work and evenings building with my old team.' },
+  { when: 'Aug 2018 to Jul 2022', place: 'Bengaluru', org: 'Ramaiah Institute of Technology', roles: ['BE Information Science'], note: 'Where I started out feeling behind, and started building anyway.' },
 ];
 ---
 <Base
@@ -90,18 +92,36 @@ const journey = [
         <p class="kicker">The places along the way</p>
         <h2 id="journey-title">Journey</h2>
       </div>
-      <ol class="stops">
-        {journey.map((j) => (
-          <li data-reveal>
-            <p class="when">{j.when}<span>{j.place}</span></p>
-            <div>
-              <h3>{j.org}</h3>
-              <p class="roles">{j.roles.join(' · ')}</p>
-              <p>{j.note}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
+      <div class="track">
+        <h3 class="track-title">Work</h3>
+        <ol class="stops">
+          {work.map((j) => (
+            <li data-reveal>
+              <p class="when">{j.when}<span>{j.place}</span></p>
+              <div>
+                <h4>{j.org}</h4>
+                <p class="roles">{j.roles.join(' · ')}</p>
+                <p>{j.note}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <div class="track">
+        <h3 class="track-title">Study</h3>
+        <ol class="stops">
+          {study.map((j) => (
+            <li data-reveal>
+              <p class="when">{j.when}<span>{j.place}</span></p>
+              <div>
+                <h4>{j.org}</h4>
+                <p class="roles">{j.roles.join(' · ')}</p>
+                <p>{j.note}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
     </section>
 
     <section class="projects gut" id="projects" aria-labelledby="projects-title">

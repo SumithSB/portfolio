@@ -153,10 +153,14 @@ h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
 .head { display: grid; gap: 10px; margin-bottom: 48px; }
 .head h2, .contact h2 { font-size: clamp(44px, 6vw, 80px); line-height: 1; }
 
-.stops { position: relative; display: grid; gap: 0; max-width: 980px; }
+.track { max-width: 980px; }
+.track + .track { margin-top: 64px; }
+.track-title { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--soft); margin-bottom: 16px; }
+.stops { position: relative; display: grid; gap: 0; }
+.stops h4 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
 .stops li { display: grid; grid-template-columns: minmax(150px, 220px) 1fr; gap: 8px 40px; padding: 28px 0; border-top: 1px solid var(--line); }
 .stops li:last-child { border-bottom: 1px solid var(--line); }
-.stops .when { font-size: 15px; color: var(--amber); font-variant-numeric: tabular-nums; display: grid; }
+.stops .when { font-size: 15px; color: var(--amber); font-variant-numeric: tabular-nums; display: grid; align-content: start; gap: 2px; }
 .stops .when span { color: var(--soft); }
 .stops li div { display: grid; gap: 6px; }
 .stops .roles { font-size: 15px; color: var(--soft); }
