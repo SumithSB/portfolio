@@ -40,9 +40,8 @@ const person = {
     <title>{title}</title>
     <meta name="description" content={description} />
     {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
-    <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F6F6F3" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#14181A" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#1F2930" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Sumith Bhandari" />
@@ -61,7 +60,20 @@ const person = {
 
     <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
     <link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
-    <link rel="preload" href={`${base}/fonts/schibsted-grotesk.woff2`} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={`${base}/fonts/public-sans.woff2`} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={`${base}/fonts/big-shoulders-800.woff2`} as="font" type="font/woff2" crossorigin />
+    <script is:inline>
+      // Intro and motion only run with JavaScript and without a reduced-motion preference.
+      (function () {
+        var d = document.documentElement;
+        d.classList.add('js');
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { d.classList.add('rm'); }
+        else {
+          d.classList.add('intro');
+          setTimeout(function () { d.classList.remove('intro'); }, 4000);
+        }
+      })();
+    </script>
     <script type="application/ld+json" set:html={JSON.stringify(person)} />
   </head>
   <body>
