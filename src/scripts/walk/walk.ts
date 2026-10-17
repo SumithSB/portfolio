@@ -4,7 +4,7 @@ import { makePerson, pose, setPersonTransition, type Person, type PoseState } fr
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { createAmbience } from './audio';
 import { createPost, type Quality } from './post';
-import { loadAvatar, type Avatar, type AvatarMode } from './avatar';
+import type { Sculpted } from './figure';
 
 // Light across one day: dawn, morning, noon, golden hour, dusk in the rain, night.
 interface Key { top: number; bottom: number; fog: number; sun: number; sunI: number; sunY: number; hemi: number; night: number; rain: number; exp: number }
@@ -39,11 +39,10 @@ const sampleChapterFrame = (u: number) => {
 };
 // Each chapter is a short walk through the heart of its scene: [start, length] along the road from the chapter's edge.
 // Scrolling moves him through that stretch; moving to the next chapter is a cut, like a film.
-const RANGES: Array<[number, number]> = [[10, 18], [16, 18], [12, 18], [22, 18], [18, 18], [END_X - 5 * SPAN - 18, 18]];
-// How tall he is in each chapter (the figure is one rig, scaled through the years).
-const HEIGHTS = [1.28, 1.6, 1.72, 1.74, 1.74, 1.74];
-const MAX_SPEED = 2.0; // a brisk walk, never a run: scroll faster and he keeps his pace and catches up
-const CUT_GAP = 10;    // further than this behind, and we cut instead of making him hurry
+const RANGES: Array<[number, number]> = [[14, 9], [20, 9], [16, 9], [26, 9], [22, 9], [END_X - 5 * SPAN - 9, 9]];
+// He moves only when you scroll: his place on the road is tied to the scroll position. A big jump (a new chapter,
+// or the chapter map) is a cut rather than a sprint.
+const CUT_GAP = 6;
 const FADE = 3.5;
 const chapterWeight = (i: number, x: number) => {
   const left = i * SPAN, right = (i + 1) * SPAN;
@@ -61,7 +60,6 @@ export interface WalkUI {
   sound: HTMLButtonElement | null;
   progress: HTMLElement | null;
   scrollTo?: (top: number) => void; // smooth scroller, when the page has one
-  avatarUrl?: string;
 }
 
 export function startWalk(ui: WalkUI) {
@@ -185,16 +183,31 @@ export function startWalk(ui: WalkUI) {
     sampled = 0; slowFrames = 0;
   };
 
-  // Six versions of him, one per chapter. Only the current one is shown.
-  const people: Person[] = Array.from({ length: CHAPTERS }, (_, i) => { const p = makePerson(i); p.visible = i === 0; scene.add(p); return p; });
-
-  // The rigged figure loads in the background; the built-in figure walks until it arrives (or if it fails).
-  let avatar: Avatar | null = null;
-  const base = (document.querySelector('link[rel=icon]') as HTMLLinkElement | null)?.href.replace(/favicon\.svg.*$/, '') ?? './';
-  loadAvatar(ui.avatarUrl ?? `${base}models/stand-in.glb`).then((a) => {
-    avatar = a; scene.add(a.root);
-    people.forEach((p) => { p.visible = false; });
-  }).catch(() => { /* keep the built-in figure */ });
+  // Scroll position -> chapter, how far through it (0..1), and where on the road he should be.
+  const place = (p: number) => {
+    const c = Math.min(CHAPTERS - 1, Math.floor(p * CHAPTERS));
+    const u = clamp(p * CHAPTERS - c);
+    const [start, len] = RANGES[c];
+    return { c, u, x: c * SPAN + start + u * len };
+  };
+  // Six versions of him, one per age. Each is sculpted in a background worker, the current chapter's first.
+  const people: Array<Person | undefined> = new Array(CHAPTERS);
+  const arrive = (stage: number, data: Sculpted) => { const p = makePerson(stage, data); p.visible = false; scene.add(p); people[stage] = p; };
+  const r0 = ui.root.getBoundingClientRect();
+  const first = place(clamp(-r0.top / Math.max(1, r0.height - innerHeight))).c;
+  const order = [first, ...Array.from({ length: CHAPTERS }, (_, i) => i).filter((i) => i !== first)];
+  try {
+    const worker = new Worker(new URL('./figure.worker.ts', import.meta.url), { type: 'module' });
+    let arrived = 0;
+    worker.onmessage = (e: MessageEvent<{ stage: number; out: Sculpted }>) => {
+      arrive(e.data.stage, e.data.out);
+      if (++arrived === CHAPTERS) worker.terminate();
+    };
+    order.forEach((i) => worker.postMessage(i));
+  } catch {
+    // No workers: sculpt on the page, one age per idle moment.
+    import('./figure').then(({ sculptStage }) => order.forEach((i, n) => setTimeout(() => arrive(i, sculptStage(i)), 60 * n)));
+  }
 
   const tmp = { a: new THREE.Color(), b: new THREE.Color() };
   const mixCol = (out: THREE.Color, a: number, b: number, t: number) => out.copy(tmp.a.set(a)).lerp(tmp.b.set(b), t);
@@ -206,13 +219,6 @@ export function startWalk(ui: WalkUI) {
   const progressAt = () => {
     const rect = ui.root.getBoundingClientRect();
     return clamp(-rect.top / Math.max(1, rect.height - innerHeight));
-  };
-  // Scroll position -> chapter, how far through it (0..1), and where on the road he should be.
-  const place = (p: number) => {
-    const c = Math.min(CHAPTERS - 1, Math.floor(p * CHAPTERS));
-    const u = clamp(p * CHAPTERS - c);
-    const [start, len] = RANGES[c];
-    return { c, u, x: c * SPAN + start + u * len };
   };
   const scrollToChapter = (i: number) => {
     const top = ui.root.offsetTop + ((i + 0.08) / CHAPTERS) * (ui.root.offsetHeight - innerHeight);
@@ -240,7 +246,7 @@ export function startWalk(ui: WalkUI) {
 
   /* ---------- the loop ---------- */
   let x = place(progressAt()).x, lastX = x, phase = 0, stillFor = 0, waved = false, waveT = 0, endT = 0;
-  let vel = 0, cutT = -1, cutTo = 0, fade = 0, jumped = false;
+  let cutT = -1, fade = 0, jumped = false;
   let smoothPtrX = 0, smoothPtrY = 0, sideS = 0.35;
   const camPos = new THREE.Vector3(), camLook = new THREE.Vector3(); let camInit = false;
   let visible = true, last = performance.now();
@@ -257,23 +263,17 @@ export function startWalk(ui: WalkUI) {
 
     const prog = progressAt();
     const pl = place(prog);
-    if (reduce) { x = pl.x; vel = 0; }
+    if (reduce) x = pl.x;
     else if (cutT >= 0) {
       // A cut: dip to black, move him, come back up. He lands just short so he walks the last step in.
       cutT += dt;
-      if (cutT >= 0.22 && !jumped) { x = cutTo = place(progressAt()).x - Math.sign(cutTo - x) * 1.2; lastX = x; vel = 0; camInit = false; jumped = true; }
+      if (cutT >= 0.22 && !jumped) { x = place(progressAt()).x; lastX = x; camInit = false; jumped = true; }
       fade = cutT < 0.22 ? cutT / 0.22 : Math.max(0, 1 - (cutT - 0.22) / 0.3);
       if (cutT > 0.52) { cutT = -1; fade = 0; }
     } else {
       const gap = pl.x - x;
-      if (Math.abs(gap) > CUT_GAP) { cutT = 0; jumped = false; cutTo = pl.x; }
-      else {
-        // Walk toward where the scroll says he should be, at a human pace: ease in, ease out, never faster than a run.
-        const want = clamp(gap * 1.1, -MAX_SPEED, MAX_SPEED);
-        vel += (want - vel) * (1 - Math.exp(-dt * 3));
-        if (Math.abs(gap) < 0.02 && Math.abs(vel) < 0.05) vel = 0;
-        x += vel * dt;
-      }
+      if (Math.abs(gap) > CUT_GAP) { cutT = 0; jumped = false; }
+      else x = pl.x; // exactly where the scroll puts him: no drifting, no catching up
     }
     if (!reduce && pinned === null) adapt(dt);
     const dx = x - lastX; lastX = x;
@@ -309,7 +309,7 @@ export function startWalk(ui: WalkUI) {
       b.style.setProperty('--ch-fill', fillAmt.toFixed(3));
       b.toggleAttribute('aria-current', i === pl.c && !atStart);
     });
-    if (!avatar) people.forEach((person, i) => setPersonTransition(person, chapterWeight(i, x)));
+    people.forEach((person, i) => { if (person) setPersonTransition(person, chapterWeight(i, x)); });
     const [rs, rl] = RANGES[ch];
     const f = clamp(ch - 0.12 + clamp((x - ch * SPAN - rs) / rl) * 0.3, 0, CHAPTERS - 1);
     const k0 = Math.floor(f), k1 = Math.min(CHAPTERS - 1, k0 + 1), kt = smooth(f - k0);
@@ -358,25 +358,19 @@ export function startWalk(ui: WalkUI) {
     ps.phase = phase; ps.moving = moving; ps.mode = mode; ps.t = t; ps.time = t; ps.dt = dt; ps.signedSpeed = signedSpeed; ps.dx = dx;
     const lookTarget = coarse ? 0 : (pointerX - 0.5) * 1.4 * (stillFor > 0.4 ? 1 : 0.4) - (pointerY - 0.5) * 0.1;
     ps.look += (lookTarget - ps.look) * (1 - Math.exp(-dt * 5));
-    let p: Person = people[ch];
-    if (avatar) {
-      avatar.root.position.set(x, 0, 0);
-      avatar.setHeight(HEIGHTS[ch]);
-      avatar.update({ dt, time: t, speed: signedSpeed, mode: mode as AvatarMode, look: ps.look, turn: turn === 0 ? 0 : 1 });
-    }
-    else for (const person of people) {
-      if (!person.visible) continue;
+    const p = people[ch];
+    for (const person of people) {
+      if (!person || !person.visible) continue;
       person.position.x = x;
       person.rotation.y += (turn - person.rotation.y) * turnBlend;
       pose(person, ps);
-      if (person === people[ch]) p = person;
     }
 
     // At the end the phone in his hand sends lines of light out across the city.
     const endK = reduce ? (atEnd ? 1 : 0) : smooth(clamp(endT / 1.4));
-    const phoneObj = avatar ? avatar.phone : p.userData.phone;
-    if (phoneObj && atEnd) {
-      (avatar ? avatar.root : p).updateMatrixWorld(true); phoneObj.getWorldPosition(phoneAt);
+    const phoneObj = p?.userData.phone;
+    if (p && phoneObj && atEnd) {
+      p.updateMatrixWorld(true); phoneObj.getWorldPosition(phoneAt);
       world.lightLines.forEach((l) => l.position.set(phoneAt.x - END_X - 0.2, phoneAt.y - 1.3, phoneAt.z - 0.3));
     }
     world.lightLines.forEach((l, i) => {
