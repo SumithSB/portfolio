@@ -280,7 +280,7 @@ export function buildWorld(scene: THREE.Scene): World {
     { const coach = (x: number) => { train.add(at(box(9, 2.2, 2.4, mat(0xE9E4DA, { r: 0.4 })), x, 7.7, 0)); train.add(at(box(8.6, 0.8, 2.42, mat(0x7FA6BF, { r: 0.1 })), x, 7.95, 0)); train.add(at(box(9.02, 0.3, 2.42, mat(0x8E3B6A)), x, 7.1, 0)); };
       [0, 9.4, 18.8].forEach(coach); train.position.set(o + 10, 0, -9); add(train); }
     // café with people on laptops
-    { const g = new THREE.Group(); g.add(at(box(8, 3.4, 4, mat(0x3A3330)), 0, 1.7, 0)); g.add(at(box(7, 2, 0.06, lit(0xF7C987)), 0, 1.6, 2.03)); g.add(at(box(8.4, 0.2, 1.6, mat(0x2A2420)), 0, 3.2, 2.6));
+    { const g = new THREE.Group(); g.add(at(box(8, 3.4, 4, mat(0x3A3330)), 0, 1.7, 0)); g.add(at(box(7, 2, 0.06, lit(0x8A6A48)), 0, 1.6, 2.03)); for (const mx of [-2.3, 0, 2.3]) g.add(at(box(0.08, 2, 0.1, mat(0x2A2420)), mx, 1.6, 2.06)); g.add(at(box(8.4, 0.2, 1.6, mat(0x2A2420)), 0, 3.2, 2.6)); // café glass, warm inside, with frames and an awning
       g.position.set(o + 34, 0, -5.4); add(g);
       for (let k = 0; k < 3; k++) { person(o + 31.5 + k * 2.4, -3.6, [0x2A2420, 0x6B4A2F, 0x3E7CB1][k], 0.8); add(at(box(0.45, 0.04, 0.3, mat(0x9BB7C9, { e: 0x5F88A8, ei: 0.4 })), o + 31.5 + k * 2.4, 0.95, -3.2)); }
     }
