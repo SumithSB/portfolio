@@ -8,13 +8,15 @@ export const END_X = SPAN * CHAPTERS - 18;
 
 export interface World {
   nightMats: THREE.MeshStandardMaterial[]; // windows and lamps: brighter as the day ends
-  rain: THREE.Points;
+  rain: THREE.LineSegments;
   plane: THREE.Group;
   bus: THREE.Group;
   train: THREE.Group;
   steam: THREE.Sprite[];
   lightLines: THREE.Line[];
   stars: THREE.Points;
+  riverShimmers: THREE.Mesh[];
+  tick: (t: number, x: number, dt: number) => void;
 }
 
 const textTexture = (text: string, w = 256, h = 96, bg = '#F7F2E6', fg = '#1A1A1A', size = 54) => {
@@ -32,6 +34,7 @@ export const glowTexture = (inner = 'rgba(255,240,205,1)', mid = 'rgba(255,214,1
 export function buildWorld(scene: THREE.Scene): World {
   const R = rng(7);
   const train = new THREE.Group();
+  const riverShimmers: THREE.Mesh[] = [];
   const nightMats: THREE.MeshStandardMaterial[] = [];
   const lit = (color: number) => { const m = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.2, roughness: 0.4 }); nightMats.push(m); return m; };
   const add = <T extends THREE.Object3D>(o: T) => { scene.add(o); return o; };
@@ -50,6 +53,32 @@ export function buildWorld(scene: THREE.Scene): World {
     if (i >= 1) { // a pavement kerb behind the walker in the city chapters
       const kerb = box(SPAN, 0.16, 1.4, mat(i >= 4 ? 0x4A4656 : 0xA39C90, { r: 0.9 })); kerb.position.set(ox(i) + SPAN / 2, 0.08, -2.4); add(kerb);
     }
+  }
+  const colorBand = (width: number, depth: number, c0: number, c1: number, rough: number) => {
+    const geo = new THREE.PlaneGeometry(width, depth, 12, 1);
+    geo.rotateX(-Math.PI / 2);
+    const pos = geo.attributes.position;
+    const colors = new Float32Array(pos.count * 3);
+    const a = new THREE.Color(c0), b = new THREE.Color(c1), c = new THREE.Color();
+    let minX = Infinity, maxX = -Infinity;
+    for (let n = 0; n < pos.count; n++) { const px = pos.getX(n); if (px < minX) minX = px; if (px > maxX) maxX = px; }
+    for (let n = 0; n < pos.count; n++) {
+      c.copy(a).lerp(b, (pos.getX(n) - minX) / (maxX - minX || 1));
+      colors[n * 3] = c.r; colors[n * 3 + 1] = c.g; colors[n * 3 + 2] = c.b;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: rough }));
+    mesh.receiveShadow = true;
+    return mesh;
+  };
+  for (let i = 1; i < CHAPTERS; i++) {
+    const ground = colorBand(12, 140, groundCols[i - 1], groundCols[i], 1);
+    ground.position.set(i * SPAN, 0.02, -40); add(ground);
+    const road = colorBand(12, 3.4, roadCols[i - 1], roadCols[i], i >= 4 ? 0.35 : 1);
+    road.position.set(i * SPAN, 0.03, 0); add(road);
+    const post = cyl(0.07, 0.09, 1.15, mat(i >= 4 ? 0xC9C3B8 : 0x8C7A62), 8);
+    post.position.set(i * SPAN, 0.58, 3.2); add(post);
+    add(at(box(0.28, 0.08, 0.08, mat(0xE7D7B4)), i * SPAN, 1.05, 3.2));
   }
   const front = new THREE.Mesh(new THREE.PlaneGeometry(SPAN * CHAPTERS, 30), mat(0x6E8A4E, { r: 1 }));
   front.rotation.x = -Math.PI / 2; front.position.set(SPAN * CHAPTERS / 2, -0.01, 16); add(front);
@@ -283,7 +312,13 @@ export function buildWorld(scene: THREE.Scene): World {
     const river = new THREE.Mesh(new THREE.PlaneGeometry(SPAN, 26), new THREE.MeshStandardMaterial({ color: 0x0F1A2E, roughness: 0.15, metalness: 0.6 }));
     river.rotation.x = -Math.PI / 2; river.position.set(o + 34 + SPAN / 2, 0.03, -18); add(river);
     add(at(box(SPAN, 1.0, 0.6, mat(0x3A3E4E)), o + SPAN / 2, 0.5, -4.6));
-    for (let i = 0; i < 40; i++) add(at(box(0.6 + R() * 1.2, 0.02, 0.08, lit(0xF2A93B)), o + 35 + R() * (SPAN - 35), 0.06, -8 - R() * 18));
+    for (let i = 0; i < 40; i++) {
+      const sx = o + 35 + R() * (SPAN - 35);
+      const strip = box(0.6 + R() * 1.2, 0.02, 0.08, lit(0xF2A93B));
+      strip.userData.baseX = sx;
+      riverShimmers.push(strip);
+      add(at(strip, sx, 0.06, -8 - R() * 18));
+    }
     // far bank skyline
     const win = lit(0xF2A93B);
     for (let i = 0; i < 14; i++) { const w = 4 + R() * 4, h = 8 + R() * 22, x = o + i * 5.6;
@@ -300,12 +335,32 @@ export function buildWorld(scene: THREE.Scene): World {
   }
   const bus = doubleDecker(ox(5) + 4, -1.5);
 
+  /* ---------- foreground posts, between camera and the road ---------- */
+  {
+    const branch = cyl(0.05, 0.1, 3.4, mat(0x5A4430), 8);
+    branch.rotation.z = 1.15; branch.position.set(ox(0) + 18, 2.5, 4.0); add(branch);
+    add(at(sphere(0.55, mat(0x3F6232), 10), ox(0) + 19.3, 3.5, 4.05));
+    add(at(cyl(0.07, 0.07, 1.35, mat(0x3A3530), 8), ox(1) + 24, 0.68, 3.8));
+    add(at(box(1.6, 0.08, 0.08, mat(0xC8382C)), ox(1) + 24, 1.15, 3.8));
+    add(at(cyl(0.07, 0.09, 5.2, mat(0x6E6A64), 8), ox(2) + 16, 2.6, 4.1));
+    add(at(box(2.4, 0.06, 0.06, mat(0x2A2622)), ox(2) + 17.1, 4.6, 4.1));
+    add(at(box(0.7, 5.4, 0.7, mat(0xB2A592)), ox(3) + 14, 2.7, 3.9));
+    lamp(ox(4) + 22, 4.05, 3.4);
+    add(at(cyl(0.06, 0.07, 1.05, mat(0x3A3E4E), 8), ox(5) + 18, 0.52, 3.7));
+    add(at(box(2.2, 0.06, 0.05, mat(0x3A3E4E)), ox(5) + 18.6, 0.95, 3.7));
+  }
+
   /* ---------- weather and life ---------- */
+  const RAIN = 900;
   const rainGeo = new THREE.BufferGeometry();
-  const rainPts = new Float32Array(1500 * 3);
-  for (let i = 0; i < 1500; i++) { rainPts[i * 3] = R() * 60 - 30; rainPts[i * 3 + 1] = R() * 14; rainPts[i * 3 + 2] = R() * 18 - 12; }
+  const rainPts = new Float32Array(RAIN * 6);
+  for (let i = 0; i < RAIN; i++) {
+    const rx = R() * 60 - 30, ry = R() * 14, rz = R() * 18 - 12, o = i * 6;
+    rainPts[o] = rx; rainPts[o + 1] = ry; rainPts[o + 2] = rz;
+    rainPts[o + 3] = rx - 0.14; rainPts[o + 4] = ry - 0.65; rainPts[o + 5] = rz;
+  }
   rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPts, 3));
-  const rain = new THREE.Points(rainGeo, new THREE.PointsMaterial({ color: 0xC9D2E8, size: 0.06, transparent: true, opacity: 0 }));
+  const rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0xC9D2E8, transparent: true, opacity: 0 }));
   add(rain);
 
   const steam: THREE.Sprite[] = [];
@@ -322,5 +377,35 @@ export function buildWorld(scene: THREE.Scene): World {
     const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(40)), lm.clone()); line.geometry.setDrawRange(0, 0); add(line); lightLines.push(line);
   });
 
-  return { nightMats, rain, plane, bus, train, steam, lightLines, stars };
+  const tick = (t: number, x: number, dt: number) => {
+    // Keep moving outside the chapter so a border crossing does not freeze them.
+    // The extra 25 units on each end puts the wrap outside the camera.
+    train.position.x = 3 * SPAN - 55 + ((t * 6) % (SPAN + 90));
+    plane.position.x = 4 * SPAN - 45 + ((t * 5) % (SPAN + 100));
+    plane.position.y = 24 + Math.sin(t * 0.3);
+    bus.position.x = 5 * SPAN - 45 + ((t * 2.4) % (SPAN + 75));
+    steam.forEach((s, i) => {
+      const k = (t * 0.35 + i / steam.length) % 1;
+      s.position.y = 1.5 + k * 1.4; s.material.opacity = 0.45 * (1 - k); s.scale.setScalar(0.4 + k * 0.8);
+    });
+    riverShimmers.forEach((m, idx) => {
+      const base = m.userData.baseX as number;
+      m.position.x = base + Math.sin(t * 2.4 + idx) * 0.35;
+      m.scale.x = 0.8 + Math.sin(t * 2.4 + idx * 0.7) * 0.22;
+    });
+    if (x > 3.2 * SPAN && x < 5.2 * SPAN) {
+      const pos = rain.geometry.attributes.position as THREE.BufferAttribute;
+      const arr = pos.array as Float32Array;
+      for (let i = 0; i < RAIN; i++) {
+        const o = i * 6;
+        let y = arr[o + 1] - dt * 14;
+        if (y < 0) y += 14;
+        arr[o + 1] = y;
+        arr[o + 4] = y - 0.65;
+      }
+      pos.needsUpdate = true;
+    }
+  };
+
+  return { nightMats, rain, plane, bus, train, steam, lightLines, stars, riverShimmers, tick };
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildWorld, SPAN, CHAPTERS, END_X } from './scenes';
-import { makePerson, pose, type Person, type PoseState } from './person';
+import { makePerson, pose, setPersonTransition, type Person, type PoseState } from './person';
 import { createAmbience } from './audio';
 
 // Light across one day: dawn, morning, noon, golden hour, dusk in the rain, night.
@@ -17,6 +17,31 @@ const KEYS: Key[] = [
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const smooth = (t: number) => t * t * (3 - 2 * t);
+
+const CAM_FRAMES = [
+  { y: 2.35, z: 8.6, lookY: 1.45 },
+  { y: 2.15, z: 7.9, lookY: 1.38 },
+  { y: 2.45, z: 8.8, lookY: 1.55 },
+  { y: 2.30, z: 8.3, lookY: 1.48 },
+  { y: 2.50, z: 9.0, lookY: 1.58 },
+  { y: 2.40, z: 8.7, lookY: 1.52 },
+];
+const sampleChapterFrame = (u: number) => {
+  const f = clamp(u, 0, CHAPTERS - 1);
+  const i = Math.floor(f);
+  const j = Math.min(CHAPTERS - 1, i + 1);
+  const t = i === j ? 0 : smooth(f - i);
+  const A = CAM_FRAMES[i], B = CAM_FRAMES[j];
+  return { y: lerp(A.y, B.y, t), z: lerp(A.z, B.z, t), lookY: lerp(A.lookY, B.lookY, t) };
+};
+const FADE = 3.5;
+const chapterWeight = (i: number, x: number) => {
+  const left = i * SPAN, right = (i + 1) * SPAN;
+  let w = 1;
+  if (i > 0) w = Math.min(w, clamp((x - (left - FADE / 2)) / FADE));
+  if (i < CHAPTERS - 1) w = Math.min(w, clamp(((right + FADE / 2) - x) / FADE));
+  return w;
+};
 
 export interface WalkUI {
   root: HTMLElement;          // the tall scroll section
@@ -98,11 +123,12 @@ export function startWalk(ui: WalkUI) {
   };
 
   /* ---------- the loop ---------- */
-  let x = progressAt() * END_X, lastX = x, phase = 0, chapter = -2, stillFor = 0, waved = false, waveT = 0, endT = 0;
+  let x = progressAt() * END_X, lastX = x, phase = 0, stillFor = 0, waved = false, waveT = 0, endT = 0;
+  let smoothPtrX = 0, smoothPtrY = 0;
   let visible = true, last = performance.now();
   new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (!visible) amb.setMix(-1); }).observe(ui.root);
   const phoneAt = new THREE.Vector3();
-  const ps: PoseState = { phase: 0, moving: 0, mode: 'walk', t: 0, look: 0 };
+  const ps: PoseState = { phase: 0, moving: 0, mode: 'walk', t: 0, time: 0, look: 0, dt: 0, signedSpeed: 0 };
 
   const frame = (now: number) => {
     requestAnimationFrame(frame);
@@ -114,19 +140,39 @@ export function startWalk(ui: WalkUI) {
     const target = progressAt() * END_X;
     x = reduce ? target : x + (target - x) * (1 - Math.exp(-dt * 5));
     const dx = x - lastX; lastX = x;
-    const speed = Math.abs(dx) / Math.max(dt, 1e-3);
-    phase += Math.abs(dx) * 4.2;
+    const signedSpeed = dx / Math.max(dt, 1e-3);
+    const speed = Math.abs(signedSpeed);
+    phase += dx * 4.2;
+    const ptrBlend = 1 - Math.exp(-dt * 4);
+    smoothPtrX += ((pointerX * 2 - 1) - smoothPtrX) * ptrBlend;
+    smoothPtrY += ((pointerY * 2 - 1) - smoothPtrY) * ptrBlend;
 
     // Which chapter, and where between the keyframes.
-    const ch = Math.min(CHAPTERS - 1, Math.floor(x / SPAN));
-    const shown = x < 4 ? -1 : ch; // the title card owns the first few steps
-    if (shown !== chapter) {
-      people.forEach((p, i) => { p.visible = i === ch; });
-      ui.cards.forEach((c, i) => c.classList.toggle('is-on', i === shown));
-      ui.mapButtons.forEach((b, i) => b.toggleAttribute('aria-current', i === shown));
-      ui.root.classList.toggle('at-start', shown < 0);
-      chapter = shown;
-    }
+    const ch = Math.min(CHAPTERS - 1, Math.max(0, Math.floor(x / SPAN)));
+    const localP = clamp((x - ch * SPAN) / SPAN);
+    const atStart = x < 4;
+    const cardVis = atStart ? 0 : ch === CHAPTERS - 1
+      ? smooth(clamp((localP - 0.05) / 0.08))
+      : localP < 0.08 ? smooth(localP / 0.08)
+      : localP > 0.88 ? smooth(clamp((1 - localP) / 0.12))
+      : 1;
+    const cardOn = cardVis > 0.04;
+    ui.root.classList.toggle('at-start', atStart);
+    if (x / END_X > 0.92) ui.root.dataset.walkEnd = 'true';
+    else delete ui.root.dataset.walkEnd;
+    ui.cards.forEach((c, i) => {
+      const vis = i === ch ? cardVis : 0;
+      const on = vis > 0.04;
+      if (c.classList.contains('is-on') !== on) c.classList.toggle('is-on', on);
+      c.style.setProperty('--card-vis', vis.toFixed(3));
+      if (i === ch) c.style.setProperty('--card-p', localP.toFixed(3));
+    });
+    ui.mapButtons.forEach((b, i) => {
+      const fill = i < ch ? 1 : i > ch ? 0 : localP;
+      b.style.setProperty('--ch-fill', fill.toFixed(3));
+      b.toggleAttribute('aria-current', i === ch && !atStart);
+    });
+    people.forEach((person, i) => setPersonTransition(person, chapterWeight(i, x)));
     const f = clamp(x / SPAN - 0.5, 0, CHAPTERS - 1);
     const k0 = Math.floor(f), k1 = Math.min(CHAPTERS - 1, k0 + 1), kt = smooth(f - k0);
     const A = KEYS[k0], B = KEYS[k1];
@@ -139,14 +185,12 @@ export function startWalk(ui: WalkUI) {
     fill.intensity = night * 14; fill.position.set(x + 1.6, 2.6, 2.6);
     world.nightMats.forEach((m) => { m.emissiveIntensity = 0.15 + night * 1.8; });
     (world.stars.material as THREE.PointsMaterial).opacity = clamp((night - 0.55) * 2.2);
-    (world.rain.material as THREE.PointsMaterial).opacity = rain * 0.75;
+    (world.rain.material as THREE.LineBasicMaterial).opacity = rain * 0.75;
     hemi.groundColor.setRGB(lerp(0.35, 0.08, night), lerp(0.27, 0.09, night), lerp(0.21, 0.16, night));
     if (ui.progress) ui.progress.style.transform = `scaleX(${(x / END_X).toFixed(4)})`;
     amb.setMix(f);
 
     // Him: walking while you scroll, turning to you when you stop.
-    const p = people[ch];
-    p.position.x = x;
     const moving = clamp(speed * 0.6);
     stillFor = moving > 0.05 ? 0 : stillFor + dt;
     if (moving > 0.05) waved = false;
@@ -160,12 +204,18 @@ export function startWalk(ui: WalkUI) {
     else waveT = 0;
 
     const turn = stillFor > 0.4 || atEnd ? -0.85 : 0;
-    p.rotation.y += (turn - p.rotation.y) * (reduce ? 1 : 1 - Math.exp(-dt * 6));
-    ps.phase = phase; ps.moving = moving; ps.mode = mode; ps.t = t;
-    // He follows your pointer with his eyes when he is facing you.
+    const turnBlend = reduce ? 1 : 1 - Math.exp(-dt * 6);
+    ps.phase = phase; ps.moving = moving; ps.mode = mode; ps.t = t; ps.time = t; ps.dt = dt; ps.signedSpeed = signedSpeed;
     const lookTarget = coarse ? 0 : (pointerX - 0.5) * 1.4 * (stillFor > 0.4 ? 1 : 0.4) - (pointerY - 0.5) * 0.1;
     ps.look += (lookTarget - ps.look) * (1 - Math.exp(-dt * 5));
-    pose(p, ps);
+    let p: Person = people[ch];
+    for (const person of people) {
+      if (!person.visible) continue;
+      person.position.x = x;
+      person.rotation.y += (turn - person.rotation.y) * turnBlend;
+      pose(person, ps);
+      if (person === people[ch]) p = person;
+    }
 
     // At the end the phone in his hand sends lines of light out across the city.
     const endK = reduce ? (atEnd ? 1 : 0) : smooth(clamp(endT / 1.4));
@@ -180,22 +230,24 @@ export function startWalk(ui: WalkUI) {
     });
 
     // Life in the world.
-    if (!reduce) {
-      world.train.position.x = 3 * SPAN - 30 + ((t * 6) % (SPAN + 40));
-      world.plane.position.x = 4 * SPAN - 20 + ((t * 5) % (SPAN + 50)); world.plane.position.y = 24 + Math.sin(t * 0.3);
-      world.bus.position.x = 5 * SPAN - 20 + ((t * 2.4) % (SPAN + 25));
-      world.steam.forEach((s, i) => { const k = (t * 0.35 + i / world.steam.length) % 1; s.position.y = 1.5 + k * 1.4; s.material.opacity = 0.45 * (1 - k); s.scale.setScalar(0.4 + k * 0.8); });
-      const pos = world.rain.geometry.attributes.position as THREE.BufferAttribute;
-      if (rain > 0.01) { for (let i = 0; i < pos.count; i++) { let y = pos.getY(i) - dt * 14; if (y < 0) y += 14; pos.setY(i, y); } pos.needsUpdate = true; }
-    }
+    if (!reduce) world.tick(t, x, dt);
     world.rain.position.x = x;
 
     // Camera follows, a little higher and further out on narrow screens.
     const narrow = cam.aspect < 0.8;
-    // At the end the camera eases left so he stands clear of the chapter card.
-    const cx = x + (narrow ? 0.6 : lerp(2.6, -1.6, endK));
-    cam.position.set(cx, narrow ? 2.6 : 2.3, narrow ? 10.5 : 8.2);
-    cam.lookAt(cx + (narrow ? 0.1 : 0.2), narrow ? 2.0 : 1.75 + endK * 0.6, -4);
+    const fr = sampleChapterFrame(x / SPAN);
+    const breathe = reduce ? 0 : Math.sin(t * 1.1) * 0.03;
+    const dolly = reduce ? 0 : Math.min(speed, 1.2) * 0.45;
+    const px = reduce || coarse ? 0 : smoothPtrX * 0.35;
+    const py = reduce || coarse ? 0 : smoothPtrY * 0.22;
+    // Card sits on the left, so the camera sits a little ahead-left and he reads on the open side.
+    const side = cardOn ? -1.15 : 0.35;
+    const cx = x + (narrow ? 0.15 : lerp(side, -1.7, endK)) + px;
+    const cy = (narrow ? fr.y + 0.35 : fr.y) + breathe + py;
+    const cz = (narrow ? fr.z + 2.3 : fr.z) + dolly;
+    const lookY = (narrow ? fr.lookY + 0.22 : fr.lookY) + endK * 0.35;
+    cam.position.set(cx, cy, cz);
+    cam.lookAt(cx + (narrow ? 0.1 : 0.2), lookY, -4);
     sky.position.copy(cam.position);
     sun.position.set(x + 30, lerp(A.sunY, B.sunY, kt), -18); sun.target.position.set(x + 4, 0, 0);
     r.render(scene, cam);

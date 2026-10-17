@@ -57,10 +57,10 @@ const study = [
         <div class="dawn" aria-hidden="true"></div>
 
         <div class="title gut">
-          <p class="kicker">Sumith Bhandari · London</p>
+          <p class="kicker">Sumith Bhandari, London</p>
           <h1>A kid from a small town who kept building.</h1>
-          <p class="lede">This is how I got here. Scroll, and walk it with me.</p>
-          <p class="hint" aria-hidden="true"><span></span>Scroll to walk</p>
+          <p class="lede">This is how I got here. Walk it with me.</p>
+          <p class="hint" aria-hidden="true"></p>
         </div>
 
         <ol class="chapters gut" id="story">
@@ -68,8 +68,10 @@ const study = [
             <li class="chapter" data-ch={i} style={`--i:${i}`}>
               <article aria-labelledby={`ch-${i}`}>
                 <p class="meta"><span>{String(i + 1).padStart(2, '0')}</span>{c.yr} · {c.place}</p>
+                <p class="scene-note">{c.sceneNote}</p>
                 <h2 id={`ch-${i}`}>{c.title}</h2>
                 {c.p.map((t) => <p>{t}</p>)}
+                {i === 5 && <a href="#journey" class="chapter-next">Continue to the timeline</a>}
               </article>
             </li>
           ))}
@@ -89,44 +91,44 @@ const study = [
 
     <section class="journey gut" id="journey" aria-labelledby="journey-title">
       <div class="head">
-        <p class="kicker">The places along the way</p>
         <h2 id="journey-title">Journey</h2>
       </div>
-      <div class="track">
-        <h3 class="track-title">Work</h3>
-        <ol class="stops">
-          {work.map((j) => (
-            <li data-reveal>
-              <p class="when">{j.when}<span>{j.place}</span></p>
-              <div>
-                <h4>{j.org}</h4>
-                <p class="roles">{j.roles.join(' · ')}</p>
-                <p>{j.note}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </div>
-      <div class="track">
-        <h3 class="track-title">Study</h3>
-        <ol class="stops">
-          {study.map((j) => (
-            <li data-reveal>
-              <p class="when">{j.when}<span>{j.place}</span></p>
-              <div>
-                <h4>{j.org}</h4>
-                <p class="roles">{j.roles.join(' · ')}</p>
-                <p>{j.note}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+      <div class="tracks">
+        <div class="track">
+          <h3 class="track-title">Work</h3>
+          <ol class="stops">
+            {work.map((j) => (
+              <li data-reveal>
+                <p class="when">{j.when}<span>{j.place}</span></p>
+                <div>
+                  <h4>{j.org}</h4>
+                  <p class="roles">{j.roles.join(' · ')}</p>
+                  <p>{j.note}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div class="track">
+          <h3 class="track-title">Study</h3>
+          <ol class="stops">
+            {study.map((j) => (
+              <li data-reveal>
+                <p class="when">{j.when}<span>{j.place}</span></p>
+                <div>
+                  <h4>{j.org}</h4>
+                  <p class="roles">{j.roles.join(' · ')}</p>
+                  <p>{j.note}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
     </section>
 
     <section class="projects gut" id="projects" aria-labelledby="projects-title">
       <div class="head">
-        <p class="kicker">Things I built because I needed them</p>
         <h2 id="projects-title">Projects</h2>
       </div>
 

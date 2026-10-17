@@ -24,7 +24,25 @@ export const LOOKS: Look[] = [
   { H: 1.74, head: 0.13, shoulder: 0.26, build: 1, top: 0xF2EFE8, short: false, bottom: 0x16181B, shoe: 0x8A5A34, beard: 'full', hairVol: 1, phone: 'today', extra: 'turtleneck' },
 ];
 
+export interface JointState {
+  armFZ: number; armFX: number; armBZ: number; armBX: number;
+  elbowFZ: number; elbowFX: number; elbowBZ: number; elbowBX: number;
+  torsoZ: number; torsoY: number;
+  headY: number; headZ: number;
+  handHide: number;
+  transitionAlpha: number;
+}
+
 export interface Person extends THREE.Group {
+  torso: THREE.Group;
+  pelvis: THREE.Group;
+  footF: THREE.Group;
+  footB: THREE.Group;
+  eyes: THREE.Group;
+  joints: JointState;
+  baseY: number;
+  facing: number;
+  blinkEvery: number;
   userData: {
     look: Look;
     legF: THREE.Group; legB: THREE.Group; armF: THREE.Group; armB: THREE.Group; head: THREE.Group; phone?: THREE.Object3D;
@@ -54,15 +72,17 @@ export function makePerson(stage: number): Person {
   const legLen = L.H * (stage === 0 ? 0.43 : 0.47), torsoLen = L.H * 0.29;
   const hipY = legLen, shY = hipY + torsoLen, b = L.build;
 
+  const pelvis = new THREE.Group(); pelvis.position.y = hipY; g.add(pelvis);
   const leg = (z: number) => {
-    const G = new THREE.Group(); G.position.set(0, hipY, z);
+    const G = new THREE.Group(); G.position.set(0, 0, z);
     const thigh = capsule(L.H * 0.062 * b, legLen * 0.42, mBottom); thigh.position.y = -legLen * 0.25; G.add(thigh);
     const knee = new THREE.Group(); knee.position.y = -legLen * 0.5; G.add(knee);
     const shin = capsule(L.H * 0.05 * b, legLen * 0.38, L.shorts ? mSkin : mBottom); shin.position.y = -legLen * 0.22; knee.add(shin);
     if (L.shorts) { const sock = capsule(L.H * 0.051, legLen * 0.1, mat(0xF2EFE8)); sock.position.y = -legLen * 0.4; knee.add(sock); }
-    const shoe = box(L.H * 0.16, L.H * 0.06, L.H * 0.095, mShoe); shoe.position.set(L.H * 0.035, -legLen * 0.47, 0); knee.add(shoe);
-    if (L.shoe === 0xECE8DE) { const sole = box(L.H * 0.162, L.H * 0.015, L.H * 0.097, mat(0xB9B3A6)); sole.position.set(L.H * 0.035, -legLen * 0.47 - L.H * 0.027, 0); knee.add(sole); }
-    G.userData.knee = knee; g.add(G); return G;
+    const foot = new THREE.Group(); foot.position.y = -legLen * 0.46; knee.add(foot);
+    const shoe = box(L.H * 0.16, L.H * 0.06, L.H * 0.095, mShoe); shoe.position.set(L.H * 0.035, -legLen * 0.01, 0); foot.add(shoe);
+    if (L.shoe === 0xECE8DE) { const sole = box(L.H * 0.162, L.H * 0.015, L.H * 0.097, mat(0xB9B3A6)); sole.position.set(L.H * 0.035, -legLen * 0.01 - L.H * 0.027, 0); foot.add(sole); }
+    G.userData.knee = knee; G.userData.foot = foot; pelvis.add(G); return G;
   };
   const legF = leg(0.072 * L.H), legB = leg(-0.072 * L.H);
 
@@ -100,12 +120,12 @@ export function makePerson(stage: number): Person {
   }
 
   const arm = (z: number) => {
-    const A = new THREE.Group(); A.position.set(0, shY - 0.04, z);
+    const A = new THREE.Group(); A.position.set(0, shY - 0.04 - hipY, z);
     const upper = capsule(L.H * 0.043 * b, torsoLen * 0.42, mTop); upper.position.y = -torsoLen * 0.24; A.add(upper);
     const elbow = new THREE.Group(); elbow.position.y = -torsoLen * 0.5; A.add(elbow);
     const fore = capsule(L.H * 0.037 * b, torsoLen * 0.4, L.short ? mSkin : mTop); fore.position.y = -torsoLen * 0.22; elbow.add(fore);
     const hand = sphere(L.H * 0.035, mSkin, 14); hand.position.y = -torsoLen * 0.47; elbow.add(hand);
-    A.userData.elbow = elbow; A.userData.hand = hand; g.add(A); return A;
+    A.userData.elbow = elbow; A.userData.hand = hand; torso.add(A); return A;
   };
   const armF = arm(L.shoulder * 1.02), armB = arm(-L.shoulder * 1.02);
   let phone: THREE.Object3D | undefined;
@@ -113,15 +133,16 @@ export function makePerson(stage: number): Person {
 
   // Head
   const r = L.head;
-  const head = new THREE.Group(); head.position.y = shY + 0.06 + r * 1.05; g.add(head);
+  const head = new THREE.Group(); head.position.y = shY + 0.06 + r * 1.05 - hipY; torso.add(head);
   const neck = capsule(r * 0.4, 0.06, mSkin); neck.position.y = -r * 0.95; head.add(neck);
   const skull = sphere(r, mSkin, 32); skull.scale.set(1.0, 1.12, 0.98); head.add(skull);
   const jaw = sphere(r * 0.88, mSkin, 24); jaw.scale.set(1.0, 0.82, 1.0); jaw.position.set(r * 0.08, -r * 0.32, 0); head.add(jaw);
   for (const z of [1, -1]) { const ear = sphere(r * 0.22, mat(SKIN_SHADE), 12); ear.scale.set(0.6, 1, 0.4); ear.position.set(-r * 0.05, -r * 0.05, z * r * 0.97); head.add(ear); }
   const mEye = mat(0x120E0C, { r: 0.3 });
+  const eyes = new THREE.Group(); eyes.position.set(r * 0.9, r * 0.02, 0); head.add(eyes);
   for (const z of [1, -1]) {
     const eye = new THREE.Mesh(new THREE.TorusGeometry(r * 0.12, r * 0.035, 8, 16, Math.PI), mEye);
-    eye.rotation.y = Math.PI / 2; eye.position.set(r * 0.9, r * 0.02, z * r * 0.36); head.add(eye);
+    eye.rotation.y = Math.PI / 2; eye.position.set(0, 0, z * r * 0.36); eyes.add(eye);
     const brow = box(0.02, r * 0.1, r * 0.36, mHair); brow.position.set(r * 0.9, r * 0.31, z * r * 0.36); brow.rotation.x = z * 0.12; head.add(brow);
   }
   const nose = sphere(r * 0.17, mSkin, 14); nose.scale.set(1.1, 0.9, 1); nose.position.set(r * 1.02, -r * 0.16, 0); head.add(nose);
@@ -150,41 +171,115 @@ export function makePerson(stage: number): Person {
     const tassel = box(0.01, r * 0.8, 0.01, mat(0xF2A93B, { e: 0xF2A93B, ei: 0.3 })); tassel.position.set(r * 0.9, r * 0.95, r * 0.9); head.add(tassel);
   }
 
+  const joints: JointState = {
+    armFZ: 0, armFX: 0, armBZ: 0, armBX: 0,
+    elbowFZ: 0.25, elbowFX: 0, elbowBZ: 0.25, elbowBX: 0,
+    torsoZ: 0, torsoY: 0, headY: 0, headZ: 0, handHide: 0, transitionAlpha: 1,
+  };
+  g.torso = torso; g.pelvis = pelvis;
+  g.footF = legF.userData.foot as THREE.Group; g.footB = legB.userData.foot as THREE.Group;
+  g.eyes = eyes; g.joints = joints; g.baseY = 0; g.facing = 1; g.blinkEvery = 3.2 + stage * 0.46;
   g.userData = { look: L, legF, legB, armF, armB, head, phone };
   return g;
 }
 
-export interface PoseState { phase: number; moving: number; mode: 'walk' | 'wave' | 'idle' | 'phone' | 'pockets'; t: number; look: number }
+export interface PoseState {
+  phase: number;
+  moving: number;
+  mode: 'walk' | 'wave' | 'idle' | 'phone' | 'pockets';
+  t: number;
+  time: number;
+  look: number;
+  dt: number;
+  signedSpeed: number;
+}
+
+const damp = (cur: number, target: number, k: number) => cur + (target - cur) * k;
+
+/** Weight 0 hides the stage. Weight 1 is full size on the road. */
+export function setPersonTransition(p: Person, weight: number) {
+  const w = Math.min(1, Math.max(0, weight));
+  p.visible = w > 0.01;
+  p.scale.setScalar(0.92 + 0.08 * w);
+  p.baseY = -(1 - w) * 0.35;
+  p.joints.transitionAlpha = w;
+}
 
 // One function drives every pose so transitions stay smooth.
 export function pose(p: Person, s: PoseState) {
   const { legF, legB, armF, armB, head, phone, look } = p.userData;
   const k = s.moving;
-  const sw = Math.sin(s.phase) * 0.55 * k;
+  const dir = Math.sign(s.signedSpeed) || 1;
+  const ph = s.phase;
+  const stride = Math.sin(ph);
+  const doubleStep = -Math.cos(ph * 2);
+  p.position.y = p.baseY + Math.max(0, doubleStep * 0.5 + 0.5) * 0.048 * k;
+
+  const sw = stride * 0.62 * k;
   legF.rotation.z = sw; legB.rotation.z = -sw;
-  (legF.userData.knee as THREE.Group).rotation.z = -Math.max(0, -Math.sin(s.phase)) * 0.7 * k;
-  (legB.userData.knee as THREE.Group).rotation.z = -Math.max(0, Math.sin(s.phase)) * 0.7 * k;
-  p.position.y = Math.abs(Math.sin(s.phase)) * 0.025 * k;
+  const kneeF = legF.userData.knee as THREE.Group, kneeB = legB.userData.knee as THREE.Group;
+  const swingF = Math.max(0, Math.cos(ph));
+  const cushionF = Math.max(0, -Math.sin(ph)) * 0.18;
+  const swingB = Math.max(0, Math.cos(ph + Math.PI));
+  const cushionB = Math.max(0, -Math.sin(ph + Math.PI)) * 0.18;
+  kneeF.rotation.z = -(swingF * 0.78 + cushionF) * k;
+  kneeB.rotation.z = -(swingB * 0.78 + cushionB) * k;
+  const heel = (phase: number) => Math.max(0, Math.sin(phase - 0.35)) * 0.26 - Math.max(0, -Math.sin(phase + 0.25)) * 0.34;
+  p.footF.rotation.z = heel(ph) * k;
+  p.footB.rotation.z = heel(ph + Math.PI) * k;
 
-  const eF = armF.userData.elbow as THREE.Group, eB = armB.userData.elbow as THREE.Group;
-  armF.rotation.set(0, 0, 0); armB.rotation.set(0, 0, 0); eF.rotation.set(0, 0, 0); eB.rotation.set(0, 0, 0);
-  (armF.userData.hand as THREE.Object3D).visible = true; (armB.userData.hand as THREE.Object3D).visible = true;
+  p.pelvis.rotation.y = -stride * 0.09 * k;
+  p.pelvis.rotation.x = stride * 0.045 * k;
+
   const holds = !!look.phone && s.mode !== 'pockets' && s.mode !== 'wave';
-  if (phone) phone.visible = holds && (look.phone !== 'today' || s.mode === 'phone');
+  const showPhone = holds && (look.phone !== 'today' || s.mode === 'phone');
+  if (phone) phone.visible = showPhone;
 
+  let tArmFZ = -sw * 0.8, tArmFX = 0, tArmBZ = sw * 0.8, tArmBX = 0;
+  let tElbowFZ = 0.25, tElbowFX = 0, tElbowBZ = 0.25, tElbowBX = 0;
+  let hideHands = 0;
   if (s.mode === 'wave') {
-    armF.rotation.z = 2.6 + Math.sin(s.t * 9) * 0.25; eF.rotation.z = 0.5;
-    armB.rotation.z = 0.05;
+    tArmFZ = 2.6 + Math.sin(s.t * 9) * 0.25; tElbowFZ = 0.5; tArmBZ = 0.05; tElbowBZ = 0;
   } else if (s.mode === 'pockets') {
-    armF.rotation.x = -0.32; armB.rotation.x = 0.32; armF.rotation.z = -0.1; armB.rotation.z = -0.1;
-    eF.rotation.z = 0.15; eB.rotation.z = 0.15; eF.rotation.x = 0.75; eB.rotation.x = -0.75;
-    (armF.userData.hand as THREE.Object3D).visible = false; (armB.userData.hand as THREE.Object3D).visible = false;
-  } else if (holds && (look.phone !== 'today' || s.mode === 'phone')) {
-    armF.rotation.z = 0.9; eF.rotation.z = 1.25;
-    armB.rotation.z = sw * 0.8; eB.rotation.z = 0.25;
-  } else {
-    armF.rotation.z = -sw * 0.8; armB.rotation.z = sw * 0.8; eF.rotation.z = 0.25 + (s.mode === 'idle' ? 0.1 : 0); eB.rotation.z = 0.25;
-    if (s.mode === 'idle') { armF.rotation.z += Math.sin(s.t * 1.3) * 0.05; }
+    tArmFX = -0.32; tArmBX = 0.32; tArmFZ = -0.1; tArmBZ = -0.1;
+    tElbowFZ = 0.15; tElbowBZ = 0.15; tElbowFX = 0.75; tElbowBX = -0.75;
+    hideHands = 1;
+  } else if (showPhone) {
+    tArmFZ = 0.9; tElbowFZ = 1.25; tArmBZ = sw * 0.8; tElbowBZ = 0.25;
+  } else if (s.mode === 'idle') {
+    tArmFZ = Math.sin(s.t * 1.3) * 0.05; tElbowFZ = 0.35;
   }
-  head.rotation.set(0, s.look * 0.6, Math.sin(s.phase * 2) * 0.02 * k + (holds ? -0.18 : 0));
+
+  const blend = 1 - Math.exp(-Math.max(0, s.dt) * 10);
+  const j = p.joints;
+  j.armFZ = damp(j.armFZ, tArmFZ, blend); j.armFX = damp(j.armFX, tArmFX, blend);
+  j.armBZ = damp(j.armBZ, tArmBZ, blend); j.armBX = damp(j.armBX, tArmBX, blend);
+  j.elbowFZ = damp(j.elbowFZ, tElbowFZ, blend); j.elbowFX = damp(j.elbowFX, tElbowFX, blend);
+  j.elbowBZ = damp(j.elbowBZ, tElbowBZ, blend); j.elbowBX = damp(j.elbowBX, tElbowBX, blend);
+  j.handHide = damp(j.handHide, hideHands, blend);
+  const lean = -0.085 * k * dir * p.facing;
+  j.torsoZ = damp(j.torsoZ, lean, blend);
+  j.torsoY = damp(j.torsoY, stride * 0.11 * k, blend);
+  const headZ = Math.sin(ph * 2) * 0.02 * k + (showPhone ? -0.18 : 0);
+  j.headY = damp(j.headY, s.look * 0.6, blend);
+  j.headZ = damp(j.headZ, headZ, blend);
+
+  armF.rotation.set(j.armFX, 0, j.armFZ);
+  armB.rotation.set(j.armBX, 0, j.armBZ);
+  const eF = armF.userData.elbow as THREE.Group, eB = armB.userData.elbow as THREE.Group;
+  eF.rotation.set(j.elbowFX, 0, j.elbowFZ);
+  eB.rotation.set(j.elbowBX, 0, j.elbowBZ);
+  const handScale = Math.max(0.02, 1 - j.handHide);
+  const handF = armF.userData.hand as THREE.Object3D, handB = armB.userData.hand as THREE.Object3D;
+  handF.visible = j.handHide < 0.92; handB.visible = j.handHide < 0.92;
+  handF.scale.setScalar(handScale); handB.scale.setScalar(handScale);
+
+  p.torso.rotation.z = j.torsoZ;
+  p.torso.rotation.y = j.torsoY;
+  p.torso.scale.y = 1 + Math.sin(s.time * 2.1) * 0.012 * (1 - k * 0.6);
+  head.rotation.set(0, j.headY, j.headZ);
+
+  const local = s.time % p.blinkEvery;
+  const close = local < 0.06 ? local / 0.06 : local < 0.12 ? (0.12 - local) / 0.06 : 0;
+  p.eyes.scale.y = 1 - close * 0.9;
 }
