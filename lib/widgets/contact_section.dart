@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -14,7 +13,6 @@ class ContactSection extends StatefulWidget {
 }
 
 class _ContactSectionState extends State<ContactSection> {
-  bool _emailCopied = false;
 
   @override
   Widget build(BuildContext context) {
@@ -151,22 +149,14 @@ class _ContactSectionState extends State<ContactSection> {
             alignment: WrapAlignment.center,
             children: [
               Semantics(
-                label: _emailCopied ? 'Email copied to clipboard' : 'Copy email address',
+                label: 'Send an email',
                 button: true,
                 child: _AnimatedContactButton(
                   icon: Icons.email_outlined,
-                  label: _emailCopied ? 'Email Copied!' : 'Copy Email',
+                  label: 'Email Me',
                   isPrimary: true,
-                  onTap: () async {
-                  await Clipboard.setData(
-                    const ClipboardData(text: 'sumithsbhandari@gmail.com'),
-                  );
-                  setState(() => _emailCopied = true);
-                  Future.delayed(const Duration(seconds: 2), () {
-                    if (mounted) setState(() => _emailCopied = false);
-                  });
-                },
-              ),
+                  onTap: () => _launchURL('mailto:sumithsbhandari@gmail.com'),
+                ),
               ),
               _AnimatedContactButton(
                 icon: FontAwesomeIcons.linkedin,

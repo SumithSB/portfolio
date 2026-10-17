@@ -1,16 +1,26 @@
-# personal_portfolio
+# Sumith Bhandari — Portfolio
 
-A new Flutter project.
+Personal portfolio built with Flutter web.
 
-## Getting Started
+- Live: https://sumithsb.github.io/portfolio/
+- Content lives in `lib/widgets/*_section.dart`
+- CVs are bundled from the repo root (see `pubspec.yaml` assets)
 
-This project is a starting point for a Flutter application.
+## Run locally
 
-A few resources to get you started if this is your first Flutter project:
+```sh
+flutter pub get
+flutter run -d chrome
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Checks
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```sh
+flutter analyze
+flutter test
+```
+
+## Deploy
+
+Pushing to `main` runs `.github/workflows/deploy-pages.yml`, which analyzes, tests,
+builds with `--base-href /portfolio/` and publishes to the `pages` branch.

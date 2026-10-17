@@ -161,11 +161,6 @@ class _CustomAppBarState extends State<CustomAppBar>
                         isDark: isDark,
                       ),
                       _NavItem(
-                        label: 'Blog',
-                        onTap: () => widget.onNavigate('Blog'),
-                        isDark: isDark,
-                      ),
-                      _NavItem(
                         label: 'Contact',
                         onTap: () => widget.onNavigate('Contact'),
                         isDark: isDark,
@@ -361,7 +356,6 @@ class _MobileDrawer extends StatelessWidget {
       'Projects',
       'Experience',
       'Education',
-      'Blog',
       'Contact',
     ];
 

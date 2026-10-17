@@ -13,10 +13,12 @@ class HeroSection extends StatefulWidget {
     this.scrollOffset = 0,
     this.onViewProjects,
     this.onDownloadCV,
+    this.onDownloadPlatformCV,
   });
   final double scrollOffset;
   final VoidCallback? onViewProjects;
   final VoidCallback? onDownloadCV;
+  final VoidCallback? onDownloadPlatformCV;
 
   @override
   State<HeroSection> createState() => _HeroSectionState();
@@ -553,7 +555,14 @@ class _HeroSectionState extends State<HeroSection>
                 _AnimatedButton(
                   onPressed: widget.onDownloadCV ?? () {},
                   icon: Icons.file_download_outlined,
-                  label: 'Download CV',
+                  label: 'Backend CV',
+                  isPrimary: false,
+                  isMobile: isMobile,
+                ),
+                _AnimatedButton(
+                  onPressed: widget.onDownloadPlatformCV ?? () {},
+                  icon: Icons.file_download_outlined,
+                  label: 'Platform CV',
                   isPrimary: false,
                   isMobile: isMobile,
                 ),

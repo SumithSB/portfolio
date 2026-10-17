@@ -10,7 +10,6 @@ import '../widgets/skills_section.dart';
 import '../widgets/projects_section.dart';
 import '../widgets/experience_section.dart';
 import '../widgets/education_section.dart';
-import '../widgets/blog_section.dart';
 import '../widgets/contact_section.dart';
 import '../widgets/footer_section.dart';
 import '../widgets/custom_app_bar.dart';
@@ -31,7 +30,6 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
   final GlobalKey projectsKey = GlobalKey();
   final GlobalKey experienceKey = GlobalKey();
   final GlobalKey educationKey = GlobalKey();
-  final GlobalKey blogKey = GlobalKey();
   final GlobalKey contactKey = GlobalKey();
   bool _showBackToTop = false;
   double _scrollProgress = 0.0;
@@ -86,10 +84,10 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     }
   }
 
-  Future<void> _openCV() async {
+  Future<void> _openCV(String fileName) async {
     if (!kIsWeb) return;
-    final base = Uri.base;
-    final uri = Uri.parse('${base.origin}${base.path}assets/Sumith_Bhandari_Resume_Backend_Engineer.pdf');
+    // Resolves against the page URL, so it works under any base href.
+    final uri = Uri.base.resolve('assets/$fileName');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.platformDefault);
     }
@@ -119,7 +117,10 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                           key: heroKey,
                           scrollOffset: _scrollController.offset,
                           onViewProjects: () => scrollToSection(projectsKey),
-                          onDownloadCV: _openCV,
+                          onDownloadCV:
+                              () => _openCV('Sumith_Bhandari_Resume_Backend_Engineer.pdf'),
+                          onDownloadPlatformCV:
+                              () => _openCV('Sumith_Bhandari_Resume_Platform_Engineer.pdf'),
                         ),
                   ),
                   AnimatedSection(
@@ -150,11 +151,6 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                     child: EducationSection(key: educationKey),
                   ),
                   AnimatedSection(
-                    sectionKey: 'blog',
-                    delayMilliseconds: 80,
-                    child: BlogSection(key: blogKey),
-                  ),
-                  AnimatedSection(
                     sectionKey: 'contact',
                     delayMilliseconds: 80,
                     child: ContactSection(key: contactKey),
@@ -179,9 +175,6 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                           break;
                         case 'Education':
                           scrollToSection(educationKey);
-                          break;
-                        case 'Blog':
-                          scrollToSection(blogKey);
                           break;
                         case 'Contact':
                           scrollToSection(contactKey);
@@ -302,9 +295,6 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                     break;
                   case 'Education':
                     scrollToSection(educationKey);
-                    break;
-                  case 'Blog':
-                    scrollToSection(blogKey);
                     break;
                   case 'Contact':
                     scrollToSection(contactKey);

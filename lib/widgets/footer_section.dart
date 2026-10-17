@@ -67,11 +67,6 @@ class FooterSection extends StatelessWidget {
                   isDark: isDark,
                 ),
                 _FooterLink(
-                  label: 'Blog',
-                  onTap: () => onNavigate('Blog'),
-                  isDark: isDark,
-                ),
-                _FooterLink(
                   label: 'Contact',
                   onTap: () => onNavigate('Contact'),
                   isDark: isDark,
@@ -107,11 +102,6 @@ class FooterSection extends StatelessWidget {
                 _FooterLink(
                   label: 'Education',
                   onTap: () => onNavigate('Education'),
-                  isDark: isDark,
-                ),
-                _FooterLink(
-                  label: 'Blog',
-                  onTap: () => onNavigate('Blog'),
                   isDark: isDark,
                 ),
                 _FooterLink(

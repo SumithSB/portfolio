@@ -185,7 +185,7 @@ class AboutSection extends StatelessWidget {
               _buildStatRow(
                 FontAwesomeIcons.graduationCap,
                 'Education',
-                'MSc Leicester \'26',
+                'MSc Leicester 2026',
                 isDark,
               ),
             ],
@@ -251,9 +251,8 @@ class AboutSection extends StatelessWidget {
         _buildContentBlock(
           'Background',
           'Software engineer with 4+ years building scalable, production-grade systems across '
-              'cloud infrastructure, AI-powered applications, and security automation. Currently '
-              'pursuing MSc in Advanced Computer Science at University of Leicester (graduating '
-              'July 2026). Co-founded a startup, shipped 20+ projects, and achieved 99.99% '
+              'cloud infrastructure, AI-powered applications, and security automation. MSc in Advanced Computer Science from '
+              'University of Leicester (2025 – 2026). Co-founded a startup, shipped 20+ projects, and achieved 99.99% '
               'uptime for distributed systems through robust architecture and automated monitoring.',
           isMobile,
           isDark,
