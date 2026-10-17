@@ -29,11 +29,13 @@ const TIME_LABELS = ['Dawn', 'Morning', 'Noon', 'Golden hour', 'After the rain',
 const PLACE_LABELS = ['Karnataka, India', 'Lockdown, 2020', 'The first startup', 'Bengaluru, India', 'Leicester, UK', 'London, UK'];
 
 // Each chapter is a short walk through the heart of its scene: [start, length] along the road from the chapter's edge.
-// Scrolling moves him through that stretch; moving to the next chapter is a cut, like a film.
+// Between chapters the camera tilts up into the sky while the light moves on to the next time of day, then comes
+// back down in the next place. It all follows the scroll, so it plays backwards too.
 const RANGES: Array<[number, number]> = [[14, 9], [20, 9], [16, 9], [26, 9], [22, 9], [END_X - 5 * SPAN - 9, 9]];
 // He moves only when you scroll: his place on the road is tied to the scroll position. A big jump (a new chapter,
 // or the chapter map) is a cut rather than a sprint.
 const CUT_GAP = 6;
+const TZ = 0.14; // the share of each chapter's scroll spent tilting to and from the sky
 const FADE = 3.5;
 const chapterWeight = (i: number, x: number) => {
   const left = i * SPAN, right = (i + 1) * SPAN;
@@ -163,7 +165,11 @@ export function startWalk(ui: WalkUI) {
     const c = Math.min(CHAPTERS - 1, Math.floor(p * CHAPTERS));
     const u = clamp(p * CHAPTERS - c);
     const [start, len] = RANGES[c];
-    return { c, u, x: c * SPAN + start + u * len };
+    const a = c > 0 ? TZ : 0, b = c < CHAPTERS - 1 ? 1 - TZ : 1;
+    const walk = clamp((u - a) / (b - a)); // how far along this chapter's stretch he is
+    // tilt: 0 looking at him, 1 looking up at the sky; `toNext` says which way the light is heading
+    const into = c > 0 && u < TZ ? 1 - u / TZ : 0, out = c < CHAPTERS - 1 && u > 1 - TZ ? (u - (1 - TZ)) / TZ : 0;
+    return { c, u, walk, tilt: smooth(Math.max(into, out)), toNext: out > 0, x: c * SPAN + start + walk * len };
   };
   // Six versions of him, one per age. Each is sculpted in a background worker, the current chapter's first.
   const people: Array<Person | undefined> = new Array(CHAPTERS);
@@ -275,7 +281,10 @@ export function startWalk(ui: WalkUI) {
       if (cutT > 0.52) { cutT = -1; fade = 0; }
     } else {
       const gap = pl.x - x;
-      if (Math.abs(gap) > CUT_GAP) { cutT = 0; jumped = false; }
+      // Crossing into another chapter while the camera is up in the sky: move him there unseen.
+      const otherChapter = Math.floor(x / SPAN) !== pl.c;
+      if (otherChapter && pl.tilt > 0.75) { x = pl.x; lastX = x; }
+      else if (Math.abs(gap) > CUT_GAP) { cutT = 0; jumped = false; }
       else x = advanceRoot(x, pl.x, dt);
     }
     if (!reduce && pinned === null) adapt(dt);
@@ -318,8 +327,13 @@ export function startWalk(ui: WalkUI) {
       else if (b.hasAttribute('aria-current')) b.removeAttribute('aria-current');
     });
     people.forEach((person, i) => { if (person) setPersonTransition(person, chapterWeight(i, x)); });
+    // The light drifts a little through each chapter and travels the rest of the way during the sky tilt.
     const [rs, rl] = RANGES[ch];
-    const f = clamp(ch - 0.12 + clamp((x - ch * SPAN - rs) / rl) * 0.3, 0, CHAPTERS - 1);
+    const drift = clamp((x - ch * SPAN - rs) / rl);
+    const f = clamp(ch !== pl.c ? ch + 0.5
+      : pl.tilt > 0 && pl.toNext ? ch + 0.18 + 0.32 * pl.tilt
+      : pl.tilt > 0 ? ch - 0.12 - 0.38 * pl.tilt
+      : ch - 0.12 + drift * 0.3, 0, CHAPTERS - 1);
     const k0 = Math.floor(f), k1 = Math.min(CHAPTERS - 1, k0 + 1), kt = smooth(f - k0);
     const A = KEYS[k0], B = KEYS[k1];
     mixCol(skyU.top.value, A.top, B.top, kt); mixCol(skyU.bottom.value, A.bottom, B.bottom, kt);
@@ -389,11 +403,12 @@ export function startWalk(ui: WalkUI) {
     const px = reduce || coarse ? 0 : smoothPtrX * 0.09;
     const py = reduce || coarse ? 0 : smoothPtrY * 0.045;
     const cx = x + (narrow ? 0.75 : 1.25) + px;
-    const cy = H * 0.85 + py;
+    const skyward = pl.tilt;
+    const cy = H * 0.85 + py + skyward * 1.4;
     const lookX = x - (narrow ? 0 : 1.35);
-    const lookY = H * 0.5;
+    const lookY = H * 0.5 + skyward * skyward * 22; // up past the rooftops into the sky
     const k = !camInit ? 1 : 1 - Math.exp(-dt * 7);
-    camPos.x += (cx - camPos.x) * k; camPos.y += (cy - camPos.y) * k; camPos.z += (lensDistance - camPos.z) * k;
+    camPos.x += (cx - camPos.x) * k; camPos.y += (cy - camPos.y) * k; camPos.z += (lensDistance + skyward * 1.5 - camPos.z) * k;
     camLook.set(lookX, lookY, 0);
     camInit = true;
     portraitShift += ((atHero ? -0.21 : lastH < 700 ? 0.2 : 0.17) - portraitShift) * (1 - Math.exp(-dt * 6));

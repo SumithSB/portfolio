@@ -101,7 +101,7 @@ export function makePerson(stage: number, sculpted: Sculpted): Person {
   g.add(skin);
   skin.bind(new THREE.Skeleton(bones));
 
-  const mHair = new THREE.MeshStandardMaterial({ color: HAIR, roughness: 0.83 });
+  const mHair = new THREE.MeshStandardMaterial({ color: 0x17120E, roughness: 0.62 });
   const hairMesh = new THREE.Mesh(cached.hair, mHair); hairMesh.castShadow = true; head.add(hairMesh);
   if (cached.beard) {
     const bm = L.beard === 'stubble' ? new THREE.MeshStandardMaterial({ color: 0x2A1F19, roughness: 1, transparent: true, opacity: 0.5 }) : new THREE.MeshStandardMaterial({ color: 0x17120F, roughness: 0.9 });
@@ -121,13 +121,21 @@ export function makePerson(stage: number, sculpted: Sculpted): Person {
     const brow = new THREE.Mesh(new THREE.CapsuleGeometry(r * 0.028, r * 0.23, 3, 8), mat(HAIR));
     brow.rotation.x = Math.PI / 2 + sign * 0.12; brow.position.set(r * 0.93, r * 0.235, sign * r * 0.34); head.add(brow);
   }
-  // A small, relaxed mouth instead of a permanent open grin.
-  const lip = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(r * 0.91, -r * 0.39, -r * 0.22),
-    new THREE.Vector3(r * 0.98, -r * 0.43, 0),
-    new THREE.Vector3(r * 0.91, -r * 0.39, r * 0.22),
-  ]);
-  head.add(new THREE.Mesh(new THREE.TubeGeometry(lip, 12, r * 0.018, 5, false), mat(0x663C2B, { r: 0.9 })));
+  // His wide, open smile: a curved opening with a row of teeth, corners lifted.
+  const smileShape = new THREE.Shape();
+  smileShape.moveTo(-0.24 * r, 0.03 * r);
+  smileShape.quadraticCurveTo(0, -0.035 * r, 0.24 * r, 0.03 * r);
+  smileShape.quadraticCurveTo(0.12 * r, -0.17 * r, 0, -0.17 * r);
+  smileShape.quadraticCurveTo(-0.12 * r, -0.17 * r, -0.24 * r, 0.03 * r);
+  const smile = new THREE.Mesh(new THREE.ShapeGeometry(smileShape, 12), mat(0x3A1512, { r: 0.8 }));
+  smile.rotation.y = Math.PI / 2; smile.position.set(r * 1.02, -r * 0.36, 0); head.add(smile);
+  const teethShape = new THREE.Shape();
+  teethShape.moveTo(-0.2 * r, 0.018 * r);
+  teethShape.quadraticCurveTo(0, -0.04 * r, 0.2 * r, 0.018 * r);
+  teethShape.lineTo(0.17 * r, -0.03 * r);
+  teethShape.quadraticCurveTo(0, -0.085 * r, -0.17 * r, -0.03 * r);
+  const teeth = new THREE.Mesh(new THREE.ShapeGeometry(teethShape, 12), mat(0xF4EEE2, { r: 0.35 }));
+  teeth.rotation.y = Math.PI / 2; teeth.position.set(r * 1.026, -r * 0.36, 0); head.add(teeth);
   if (L.cap) {
     const board = box(r * 2.6, 0.02, r * 2.6, mat(0x151110)); board.position.y = r * 1.42; board.rotation.y = Math.PI / 4; head.add(board);
     const crown = cyl(r * 0.98, r * 1.03, r * 0.42, mat(0x151110)); crown.position.y = r * 1.2; head.add(crown);

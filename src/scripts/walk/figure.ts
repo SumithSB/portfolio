@@ -42,14 +42,16 @@ export function sculptStage(stage: number): Sculpted {
     ellipsoid([0.005 * H, hipY + 0.74 * torsoLen, 0], [0.078 * H * b, 0.3 * torsoLen, shZ - armR - 0.008]),
     sphere([0, shJY - 0.005, shZ - 0.014 * H], 0.033 * H * b), sphere([0, shJY - 0.005, -(shZ - 0.014 * H)], 0.033 * H * b),
   );
-  const jawC: V3 = [0.08 * r, headY - 0.32 * r, 0], jawR: V3 = [0.86 * r, 0.72 * r, 0.82 * r];
+  const chinC: V3 = [0.62 * r, -0.82 * r, 0], chinR: V3 = [0.24 * r, 0.19 * r, 0.32 * r];
+  const jawC: V3 = [0.08 * r, headY - 0.32 * r, 0], jawR: V3 = [0.88 * r, 0.74 * r, 0.88 * r]; // a fuller jaw, so the head is not a balloon on a stalk
   const headField = blend(0.05 * r,
-    blend(0.25 * r, ellipsoid([0, headY, 0], [r, 1.12 * r, 0.94 * r]), ellipsoid(jawC, jawR)),
+    // skull, jaw and a defined chin (forward and down), blended into one shape
+    blend(0.22 * r, ellipsoid([0, headY, 0], [r, 1.12 * r, 0.94 * r]), ellipsoid(jawC, jawR), ellipsoid([chinC[0], headY + chinC[1], 0], chinR)),
     ellipsoid([0.97 * r, headY - 0.12 * r, 0], [0.22 * r, 0.16 * r, 0.14 * r]),
     ellipsoid([-0.05 * r, headY - 0.05 * r, 0.9 * r], [0.17 * r, 0.25 * r, 0.08 * r]),
     ellipsoid([-0.05 * r, headY - 0.05 * r, -0.9 * r], [0.17 * r, 0.25 * r, 0.08 * r]),
   );
-  const neckField = cone([0, shY - 0.03, 0], [0.01, headY - 0.7 * r, 0], 0.4 * r, 0.38 * r);
+  const neckField = cone([0, shY - 0.03, 0], [0.01, headY - 0.7 * r, 0], 0.5 * r, 0.44 * r);
   const lF = legField(zL), lB = legField(-zL), aF = armField(shZ), aB = armField(-shZ);
   const parts = (x: number, y: number, z: number) => [torsoField(x, y, z), lF(x, y, z), lB(x, y, z), aF(x, y, z), aB(x, y, z), neckField(x, y, z), headField(x, y, z)];
   const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -119,31 +121,55 @@ export function sculptStage(stage: number): Sculpted {
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
   geo.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
 
-  // Hair: a sculpted cap with a real hairline, swept up and back with volume at the front.
+  // Hair, as in his photos: thick and swept up and back, highest at the front and tapering toward the crown, cut
+  // short at the sides with the ears clear. Fine grooves run front to back so it reads as combed hair, not a wrap.
   const v = L.hairVol;
-  const hairField: Field = (x, y, z) => Math.max(
-    blend(0.15 * r,
-      ellipsoid([-0.02 * r, 0.04 * r, 0], [1.045 * r, 1.17 * r, 0.985 * r]), // follows the skull closely
-      ellipsoid([0.48 * r, (0.86 + 0.1 * v) * r, 0], [0.42 * r, (0.2 + 0.12 * v) * r, 0.55 * r]), // swept-up front
-      ellipsoid([0.1 * r, (0.98 + 0.06 * v) * r, 0], [0.62 * r, (0.18 + 0.1 * v) * r, 0.66 * r]),
-    )(x, y, z),
-    // the hairline: high at the forehead, receding a little at the temples, down to the nape at the back
-    0.06 * r + 0.42 * x + 0.28 * r * (z / r) ** 2 * Math.max(0, Math.min(1, x / r)) - y,
+  const clampU = (t: number) => Math.max(0, Math.min(1, t));
+  const shell = ellipsoid([0, 0.01 * r, 0], [1.035 * r, 1.155 * r, 0.975 * r]); // short all over, hugging the skull
+  const top = blend(0.22 * r,
+    ellipsoid([0.5 * r, (0.97 + 0.05 * v) * r, 0], [0.42 * r, (0.14 + 0.07 * v) * r, 0.56 * r]),  // the lift at the front
+    ellipsoid([0.12 * r, (1.0 + 0.03 * v) * r, 0], [0.52 * r, (0.13 + 0.05 * v) * r, 0.64 * r]),
+    ellipsoid([-0.3 * r, 1.0 * r, 0], [0.5 * r, 0.12 * r, 0.6 * r]),                            // flattening toward the crown
   );
-  const hair = polygonize(hairField, [-1.3 * r, -0.7 * r, -1.2 * r], [1.3 * r, 1.7 * r, 1.2 * r], r / 15);
+  const hairline = (x: number, z: number) => {
+    const az = Math.abs(z) / r;
+    // forehead high, temples a touch higher, down to the nape at the back; a slight unevenness so it isn't a ruled line
+    let h = 0.08 * r + 0.42 * x + 0.16 * r * az * az * clampU(x / r) + 0.025 * r * Math.sin(z / r * 23);
+    // short back and sides: a rounded cut around each ear
+    const u = (x + 0.08 * r) / (0.56 * r);
+    if (az > 0.5 && Math.abs(u) < 1) h = Math.max(h, 0.05 * r + 0.17 * r * Math.sqrt(1 - u * u));
+    return h;
+  };
+  const hairField: Field = (x, y, z) => {
+    let d = smin(shell(x, y, z), top(x, y, z), 0.12 * r);
+    // combed-back grooves, deeper on top where the hair is longer
+    d += 0.012 * r * Math.sin(z / r * 34 + Math.sin(x / r * 3) * 1.5) * clampU((y + 0.1 * r) / r);
+    return Math.max(d, hairline(x, z) - y);
+  };
+  const hair = polygonize(hairField, [-1.2 * r, -0.5 * r, -1.1 * r], [1.2 * r, 1.45 * r, 1.1 * r], r / 22);
   let beard: THREE.BufferGeometry | null = null;
   if (L.beard !== 'none') {
-    const th = L.beard === 'full' ? 0.075 * r : L.beard === 'short' ? 0.05 * r : 0.022 * r;
+    // A trimmed beard that follows the jaw: kept short, with fine vertical texture so it reads as hair.
+    const th = L.beard === 'full' ? 0.055 * r : L.beard === 'short' ? 0.04 * r : 0.02 * r;
     const jc: V3 = [jawC[0], jawC[1] - headY, 0];
-    const outer = ellipsoid(jc, [jawR[0] + th, jawR[1] + th, jawR[2] + th]), inner = ellipsoid(jc, [jawR[0] - 0.01 * r, jawR[1] - 0.01 * r, jawR[2] - 0.01 * r]);
-    const mouth = ellipsoid([0.95 * r, -0.4 * r, 0], [0.2 * r, 0.07 * r, 0.27 * r]);
-    const stache = L.beard === 'stubble' ? null : ellipsoid([0.93 * r, -0.28 * r, 0], [0.09 * r, 0.045 * r, 0.27 * r]);
+    // the shell reaches well inside the face so it is thick enough to sculpt; only `th` shows above the skin
+    // the beard wraps the jaw and the chin
+    const jawOut = ellipsoid(jc, [jawR[0] + th, jawR[1] + th, jawR[2] + th]), jawIn = ellipsoid(jc, [jawR[0] - 0.06 * r, jawR[1] - 0.06 * r, jawR[2] - 0.06 * r]);
+    const chinOut = ellipsoid(chinC, [chinR[0] + th, chinR[1] + th, chinR[2] + th]), chinIn = ellipsoid(chinC, [chinR[0] - 0.05 * r, chinR[1] - 0.05 * r, chinR[2] - 0.05 * r]);
+    const outer: Field = (x, y, z) => smin(jawOut(x, y, z), chinOut(x, y, z), 0.2 * r);
+    const inner: Field = (x, y, z) => smin(jawIn(x, y, z), chinIn(x, y, z), 0.2 * r);
+    const mouth = ellipsoid([0.95 * r, -0.4 * r, 0], [0.22 * r, 0.085 * r, 0.3 * r]);
+    const stache = L.beard === 'stubble' ? null : ellipsoid([0.95 * r, -0.29 * r, 0], [0.06 * r, 0.032 * r, 0.25 * r]);
     const beardField: Field = (x, y, z) => {
-      let d = Math.max(outer(x, y, z), -inner(x, y, z), y + 0.08 * r, -(x + 0.25 * r));
-      if (stache) d = smin(d, stache(x, y, z), 0.03 * r);
+      // the cheek line rises toward the sideburns
+      // the cheek line rises toward the ear, so the beard meets the hair like a sideburn
+      const cheek = -0.1 * r - 0.12 * r * Math.max(0, (x - 0.2 * r) / r) + 0.75 * r * Math.max(0, 0.18 * r - x) / r;
+      let d = Math.max(outer(x, y, z), -inner(x, y, z), y - cheek, -(x + 0.2 * r));
+      if (stache) d = smin(d, stache(x, y, z), 0.02 * r);
+      d += 0.006 * r * Math.sin(z / r * 60) * Math.sin(y / r * 18);
       return Math.max(d, -mouth(x, y, z));
     };
-    beard = polygonize(beardField, [-0.5 * r, -1.25 * r, -1.1 * r], [1.15 * r, 0.1 * r, 1.1 * r], r / 22);
+    beard = polygonize(beardField, [-0.45 * r, -1.2 * r, -1.05 * r], [1.1 * r, 0.15 * r, 1.05 * r], r / 26);
   }
   return { body: arrays(geo), hair: arrays(hair), beard: beard ? arrays(beard) : null };
 }
