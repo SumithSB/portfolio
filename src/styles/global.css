@@ -257,7 +257,7 @@ svg.logo path { fill: none; stroke: var(--amber); stroke-width: 1.6; stroke-line
 
 .contact { display: grid; gap: 20px; justify-items: start; padding-bottom: 128px; background: radial-gradient(55% 46% at 12% 100%, rgba(232, 161, 58, 0.1), transparent 68%), var(--night); }
 .contact > p { max-width: 42ch; color: #CFCBC4; }
-.contact .mail { font-family: var(--serif); font-size: clamp(26px, 3.6vw, 44px); text-decoration-color: rgba(232, 161, 58, 0.55); overflow-wrap: anywhere; }
+.contact .mail { font-family: var(--serif); font-size: clamp(22px, 3.6vw, 44px); text-decoration-color: rgba(232, 161, 58, 0.55); overflow-wrap: break-word; white-space: nowrap; }
 .social { display: flex; flex-wrap: wrap; gap: 6px 22px; }
 
 .foot { background: var(--night); border-top: 1px solid var(--line); padding-top: 26px; padding-bottom: 36px; font-size: 13px; color: var(--soft); }
@@ -278,3 +278,10 @@ svg.logo path { fill: none; stroke: var(--amber); stroke-width: 1.6; stroke-line
     background: #12151C;
   }
 }
+
+/* The walk's controls step aside as the next section arrives. */
+.hud { transition: opacity 0.35s var(--ease, ease); }
+.walk.leaving .hud { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: clip; }

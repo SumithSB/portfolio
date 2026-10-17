@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mat, box, capsule, sphere, cyl, at, rng, instanced } from './kit';
+import { mat, box, capsule, sphere, cyl, at, rng, instanced, detailed } from './kit';
 
 // Six scenes laid end to end along the road (the walker moves along +x at z = 0).
 export const SPAN = 70;
@@ -46,9 +46,9 @@ export function buildWorld(scene: THREE.Scene): World {
   const groundCols = [0x8DAF5E, 0x9A948A, 0x8A8378, 0x8F887C, 0x55515E, 0x1E2333];
   const roadCols = [0xC09A70, 0x5E5A56, 0x55524F, 0x5A544E, 0x3C3946, 0x1C2030];
   for (let i = 0; i < CHAPTERS; i++) {
-    const g = new THREE.Mesh(new THREE.PlaneGeometry(SPAN + 0.2, 140), mat(groundCols[i], { r: 1 }));
+    const g = new THREE.Mesh(new THREE.PlaneGeometry(SPAN + 0.2, 140), detailed(mat(groundCols[i], { r: 1 }), SPAN, 140, 4));
     g.rotation.x = -Math.PI / 2; g.position.set(ox(i) + SPAN / 2, 0, -40); g.receiveShadow = true; add(g);
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(SPAN + 0.2, 3.4), mat(roadCols[i], { r: i >= 4 ? 0.25 : 1, m: i >= 4 ? 0.2 : 0 }));
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(SPAN + 0.2, 3.4), detailed(mat(roadCols[i], { r: i >= 4 ? 0.25 : 1, m: i >= 4 ? 0.2 : 0 }), SPAN, 3.4, 1.5));
     road.rotation.x = -Math.PI / 2; road.position.set(ox(i) + SPAN / 2, 0.01, 0); road.receiveShadow = true; add(road);
     if (i >= 1) { // a pavement kerb behind the walker in the city chapters
       const kerb = box(SPAN, 0.16, 1.4, mat(i >= 4 ? 0x4A4656 : 0xA39C90, { r: 0.9 })); kerb.position.set(ox(i) + SPAN / 2, 0.08, -2.4); add(kerb);

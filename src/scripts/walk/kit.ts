@@ -52,3 +52,24 @@ export const instanced = (geo: THREE.BufferGeometry, m: THREE.Material, items: A
   inst.castShadow = true; inst.receiveShadow = true;
   return inst;
 };
+
+// Fine surface grain (dirt, asphalt, grass) so big flat areas don't read as plastic.
+let grainCanvas: HTMLCanvasElement | null = null;
+const grain = () => {
+  if (grainCanvas) return grainCanvas;
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const x = c.getContext('2d')!; const img = x.createImageData(256, 256); const R = rng(11);
+  for (let i = 0; i < 256 * 256; i++) {
+    const px = i % 256, py = (i / 256) | 0;
+    const v = 200 + R() * 40 + Math.sin(px * 0.11) * Math.sin(py * 0.07) * 10;
+    img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v; img.data[i * 4 + 3] = 255;
+  }
+  x.putImageData(img, 0, 0); grainCanvas = c; return c;
+};
+export const detailed = (m: THREE.MeshStandardMaterial, w: number, d: number, tile = 3) => {
+  const out = m.clone();
+  const t = new THREE.CanvasTexture(grain()); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(w / tile, d / tile); t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  out.map = t; out.bumpMap = t; out.bumpScale = 0.6; out.roughnessMap = t;
+  return out;
+};

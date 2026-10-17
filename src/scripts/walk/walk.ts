@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { buildWorld, SPAN, CHAPTERS, END_X } from './scenes';
 import { makePerson, pose, setPersonTransition, type Person, type PoseState } from './person';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { createAmbience } from './audio';
+import { createPost, type Quality } from './post';
 
 // Light across one day: dawn, morning, noon, golden hour, dusk in the rain, night.
 interface Key { top: number; bottom: number; fog: number; sun: number; sunI: number; sunY: number; hemi: number; night: number; rain: number; exp: number }
@@ -50,6 +52,7 @@ export interface WalkUI {
   mapButtons: HTMLButtonElement[];
   sound: HTMLButtonElement | null;
   progress: HTMLElement | null;
+  scrollTo?: (top: number) => void; // smooth scroller, when the page has one
 }
 
 export function startWalk(ui: WalkUI) {
@@ -65,12 +68,39 @@ export function startWalk(ui: WalkUI) {
   scene.fog = new THREE.Fog(0xF3CBA6, 16, 75);
   const cam = new THREE.PerspectiveCamera(40, 1, 0.1, 260);
 
-  // Sky: a big gradient dome that follows the camera.
-  const skyU = { top: { value: new THREE.Color() }, bottom: { value: new THREE.Color() } };
-  const sky = new THREE.Mesh(new THREE.SphereGeometry(200, 32, 16), new THREE.ShaderMaterial({
+  // Sky: a gradient dome with a glowing sun and slow drifting clouds. It follows the camera.
+  const skyU = {
+    top: { value: new THREE.Color() }, bottom: { value: new THREE.Color() },
+    sunDir: { value: new THREE.Vector3(0.8, 0.2, -0.5).normalize() }, sunCol: { value: new THREE.Color() },
+    time: { value: 0 }, night: { value: 0 }, cloud: { value: 0.5 },
+  };
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(200, 48, 24), new THREE.ShaderMaterial({
     uniforms: skyU, side: THREE.BackSide, depthWrite: false, fog: false,
     vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: 'uniform vec3 top; uniform vec3 bottom; varying vec3 vP; void main(){ float h = clamp(vP.y * 1.6 + 0.08, 0.0, 1.0); gl_FragColor = vec4(mix(bottom, top, pow(h, 0.8)), 1.0); }',
+    fragmentShader: `
+      uniform vec3 top, bottom, sunDir, sunCol; uniform float time, night, cloud; varying vec3 vP;
+      float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+      float fbm(vec2 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.03; a *= 0.5; } return v; }
+      void main(){
+        vec3 d = normalize(vP);
+        float h = clamp(d.y * 1.6 + 0.08, 0.0, 1.0);
+        vec3 col = mix(bottom, top, pow(h, 0.8));
+        float s = max(dot(d, normalize(sunDir)), 0.0);
+        col += sunCol * (pow(s, 6.0) * 0.28 + pow(s, 60.0) * 0.5) * (1.0 - night * 0.7);
+        col += sunCol * smoothstep(0.9993, 0.9997, s) * (1.0 - night) * 1.6;
+        // clouds on a plane above the street, thinning toward the horizon
+        if (d.y > 0.0) {
+          vec2 uv = d.xz / (d.y + 0.12) * 1.4 + vec2(time * 0.012, 0.0);
+          float c = smoothstep(0.52 - cloud * 0.18, 0.86, fbm(uv));
+          c *= smoothstep(0.0, 0.18, d.y);
+          vec3 cc = mix(mix(bottom, vec3(1.0), 0.55), sunCol, pow(s, 4.0) * 0.6);
+          cc = mix(cc, top * 1.4, night);
+          col = mix(col, cc, c * 0.55);
+        }
+        gl_FragColor = vec4(col, 1.0);
+      }`,
   }));
   sky.renderOrder = -1; scene.add(sky);
 
@@ -82,7 +112,29 @@ export function startWalk(ui: WalkUI) {
   // A warm light that stays with him, so he is never lost in the dark chapters.
   const fill = new THREE.PointLight(0xFFD9A8, 0, 9, 2); scene.add(fill);
 
+  // Soft studio reflections so glass, wet roads and metal pick up light.
+  const pmrem = new THREE.PMREMGenerator(r);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  pmrem.dispose();
+
   const world = buildWorld(scene);
+
+  let ratio = Math.min(devicePixelRatio, coarse ? 1.5 : 2);
+  // ?quality=0|1|2 pins the quality level, for checking how the walk looks on any device.
+  const pinned = new URLSearchParams(location.search).get('quality');
+  const post = createPost(r, scene, cam, (pinned !== null ? clamp(+pinned, 0, 2) : coarse ? 1 : 2) as Quality);
+  // Watch the frame rate and step quality down if the device struggles. Never steps back up, so it can't flicker.
+  let slowFrames = 0, sampled = 0;
+  const adapt = (dt: number) => {
+    // Judge in short windows by majority, so one hitch never counts but a slow device steps down within a second or two.
+    sampled++; if (dt > 1 / 40) slowFrames++;
+    if (sampled < 30) return;
+    if (slowFrames > 18) {
+      if (post.quality > 0) post.setQuality((post.quality - 1) as Quality);
+      else if (ratio > 1) { ratio = 1; r.setPixelRatio(1); lastW = 0; }
+    }
+    sampled = 0; slowFrames = 0;
+  };
 
   // Six versions of him, one per chapter. Only the current one is shown.
   const people: Person[] = Array.from({ length: CHAPTERS }, (_, i) => { const p = makePerson(i); p.visible = i === 0; scene.add(p); return p; });
@@ -101,7 +153,7 @@ export function startWalk(ui: WalkUI) {
   const scrollToChapter = (i: number) => {
     const x = i * SPAN + SPAN * 0.32;
     const top = ui.root.offsetTop + (x / END_X) * (ui.root.offsetHeight - innerHeight);
-    scrollTo({ top, behavior: reduce ? 'auto' : 'smooth' });
+    if (ui.scrollTo && !reduce) ui.scrollTo(top); else scrollTo({ top, behavior: reduce ? 'auto' : 'smooth' });
   };
   ui.mapButtons.forEach((b, i) => b.addEventListener('click', () => scrollToChapter(i)));
 
@@ -114,21 +166,23 @@ export function startWalk(ui: WalkUI) {
   });
 
   /* ---------- size ---------- */
+  let lastW = 0, lastH = 0;
   const fit = () => {
     const w = ui.canvas.clientWidth, h = ui.canvas.clientHeight;
-    if (!w || !h) return;
-    if (ui.canvas.width !== Math.floor(w * r.getPixelRatio()) || ui.canvas.height !== Math.floor(h * r.getPixelRatio())) {
-      r.setSize(w, h, false); cam.aspect = w / h; cam.fov = cam.aspect < 0.8 ? 58 : cam.aspect < 1.3 ? 48 : 40; cam.updateProjectionMatrix();
-    }
+    if (!w || !h || (w === lastW && h === lastH)) return;
+    lastW = w; lastH = h;
+    r.setPixelRatio(ratio); r.setSize(w, h, false); post.setSize(w, h, ratio);
+    cam.aspect = w / h; cam.fov = cam.aspect < 0.8 ? 58 : cam.aspect < 1.3 ? 48 : 40; cam.updateProjectionMatrix();
   };
 
   /* ---------- the loop ---------- */
   let x = progressAt() * END_X, lastX = x, phase = 0, stillFor = 0, waved = false, waveT = 0, endT = 0;
-  let smoothPtrX = 0, smoothPtrY = 0;
+  let smoothPtrX = 0, smoothPtrY = 0, sideS = 0.35;
+  const camPos = new THREE.Vector3(), camLook = new THREE.Vector3(); let camInit = false;
   let visible = true, last = performance.now();
   new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (!visible) amb.setMix(-1); }).observe(ui.root);
   const phoneAt = new THREE.Vector3();
-  const ps: PoseState = { phase: 0, moving: 0, mode: 'walk', t: 0, time: 0, look: 0, dt: 0, signedSpeed: 0 };
+  const ps: PoseState = { phase: 0, moving: 0, mode: 'walk', t: 0, time: 0, look: 0, dt: 0, signedSpeed: 0, dx: 0 };
 
   const frame = (now: number) => {
     requestAnimationFrame(frame);
@@ -138,7 +192,8 @@ export function startWalk(ui: WalkUI) {
     fit();
 
     const target = progressAt() * END_X;
-    x = reduce ? target : x + (target - x) * (1 - Math.exp(-dt * 5));
+    x = reduce ? target : x + (target - x) * (1 - Math.exp(-dt * 6));
+    if (!reduce && pinned === null) adapt(dt);
     const dx = x - lastX; lastX = x;
     const signedSpeed = dx / Math.max(dt, 1e-3);
     const speed = Math.abs(signedSpeed);
@@ -178,10 +233,13 @@ export function startWalk(ui: WalkUI) {
     const A = KEYS[k0], B = KEYS[k1];
     mixCol(skyU.top.value, A.top, B.top, kt); mixCol(skyU.bottom.value, A.bottom, B.bottom, kt);
     mixCol((scene.fog as THREE.Fog).color, A.fog, B.fog, kt);
-    mixCol(sun.color, A.sun, B.sun, kt);
+    mixCol(sun.color, A.sun, B.sun, kt); skyU.sunCol.value.copy(sun.color);
     sun.intensity = lerp(A.sunI, B.sunI, kt); hemi.intensity = lerp(A.hemi, B.hemi, kt);
     r.toneMappingExposure = lerp(A.exp, B.exp, kt);
     const night = lerp(A.night, B.night, kt), rain = lerp(A.rain, B.rain, kt);
+    skyU.time.value = t; skyU.night.value = night; skyU.cloud.value = 0.35 + rain * 0.6;
+    scene.environmentIntensity = lerp(0.22, 0.12, night);
+    post.update(t, night, clamp(1 - Math.abs(f - 3) / 1.5));
     fill.intensity = night * 14; fill.position.set(x + 1.6, 2.6, 2.6);
     world.nightMats.forEach((m) => { m.emissiveIntensity = 0.15 + night * 1.8; });
     (world.stars.material as THREE.PointsMaterial).opacity = clamp((night - 0.55) * 2.2);
@@ -204,8 +262,8 @@ export function startWalk(ui: WalkUI) {
     else waveT = 0;
 
     const turn = stillFor > 0.4 || atEnd ? -0.85 : 0;
-    const turnBlend = reduce ? 1 : 1 - Math.exp(-dt * 6);
-    ps.phase = phase; ps.moving = moving; ps.mode = mode; ps.t = t; ps.time = t; ps.dt = dt; ps.signedSpeed = signedSpeed;
+    const turnBlend = reduce ? 1 : 1 - Math.exp(-dt * 3.2); // a weighty turn; the head leads it
+    ps.phase = phase; ps.moving = moving; ps.mode = mode; ps.t = t; ps.time = t; ps.dt = dt; ps.signedSpeed = signedSpeed; ps.dx = dx;
     const lookTarget = coarse ? 0 : (pointerX - 0.5) * 1.4 * (stillFor > 0.4 ? 1 : 0.4) - (pointerY - 0.5) * 0.1;
     ps.look += (lookTarget - ps.look) * (1 - Math.exp(-dt * 5));
     let p: Person = people[ch];
@@ -241,16 +299,26 @@ export function startWalk(ui: WalkUI) {
     const px = reduce || coarse ? 0 : smoothPtrX * 0.35;
     const py = reduce || coarse ? 0 : smoothPtrY * 0.22;
     // Card sits on the left, so the camera sits a little ahead-left and he reads on the open side.
-    const side = cardOn ? -1.15 : 0.35;
-    const cx = x + (narrow ? 0.15 : lerp(side, -1.7, endK)) + px;
-    const cy = (narrow ? fr.y + 0.35 : fr.y) + breathe + py;
+    // Card sits on the left, so the camera drifts ahead-left and he reads on the open side. Eased, never snapped.
+    sideS += ((cardOn ? -1.15 : 0.35) - sideS) * (1 - Math.exp(-dt * 1.6));
+    const hand = reduce ? 0 : 1; // a faint hand-held drift
+    const hx = (Math.sin(t * 0.37) + Math.sin(t * 0.91) * 0.5) * 0.025 * hand;
+    const hy = (Math.sin(t * 0.53 + 1.3) + Math.sin(t * 1.27) * 0.4) * 0.02 * hand;
+    const cx = x + (narrow ? 0.15 : lerp(sideS, -1.7, endK)) + px + hx;
+    const cy = (narrow ? fr.y + 0.35 : fr.y) + breathe + py + hy;
     const cz = (narrow ? fr.z + 2.3 : fr.z) + dolly;
     const lookY = (narrow ? fr.lookY + 0.22 : fr.lookY) + endK * 0.35;
-    cam.position.set(cx, cy, cz);
-    cam.lookAt(cx + (narrow ? 0.1 : 0.2), lookY, -4);
+    const k = reduce || !camInit ? 1 : 1 - Math.exp(-dt * 4.5);
+    camPos.x += (cx - camPos.x) * k; camPos.y += (cy - camPos.y) * k; camPos.z += (cz - camPos.z) * k;
+    camLook.x += (cx + (narrow ? 0.1 : 0.2) - camLook.x) * k; camLook.y += (lookY - camLook.y) * k; camLook.z = -4;
+    camInit = true;
+    cam.position.copy(camPos);
+    cam.lookAt(camLook);
     sky.position.copy(cam.position);
+    // The sun's direction from where we stand, for the glow in the sky.
+    skyU.sunDir.value.set(30, lerp(A.sunY, B.sunY, kt), -18).normalize();
     sun.position.set(x + 30, lerp(A.sunY, B.sunY, kt), -18); sun.target.position.set(x + 4, 0, 0);
-    r.render(scene, cam);
+    post.render(dt);
   };
   requestAnimationFrame(frame);
   requestAnimationFrame(() => requestAnimationFrame(() => ui.root.classList.add('ready')));

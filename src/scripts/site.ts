@@ -1,8 +1,16 @@
 import { animate, inView, scroll } from 'motion';
+import Lenis from 'lenis';
 
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = <T extends Element = HTMLElement>(sel: string, el: ParentNode = document) => el.querySelector<T>(sel);
 const $$ = <T extends Element = HTMLElement>(sel: string, el: ParentNode = document) => [...el.querySelectorAll<T>(sel)];
+
+/* ---------- Smooth, weighted scrolling (skipped for reduced motion) ---------- */
+const lenis = reduce ? null : new Lenis({ lerp: 0.09, wheelMultiplier: 0.9, anchors: { offset: -72 } });
+if (lenis) {
+  const raf = (t: number) => { lenis.raf(t); requestAnimationFrame(raf); };
+  requestAnimationFrame(raf);
+}
 
 /* ---------- The walk: 3D when the device can, plain chapters when it can't ---------- */
 const walk = $('.walk');
@@ -20,6 +28,7 @@ if (walk && canvas && webgl && !reduce) {
       mapButtons: $$<HTMLButtonElement>('.map button', walk),
       sound: $<HTMLButtonElement>('.sound', walk),
       progress: $('#walk-progress'),
+      scrollTo: lenis ? (y) => lenis.scrollTo(y, { duration: 1.6 }) : undefined,
     }))
     .catch(() => { walk.classList.remove('is-3d', 'at-start'); if (hud) hud.hidden = true; });
 }
@@ -28,6 +37,9 @@ if (walk && canvas && webgl && !reduce) {
 const top = $('.top');
 if (top && walk) {
   new IntersectionObserver(([e]) => top.classList.toggle('solid', !e.isIntersecting), { rootMargin: '-80px 0px 0px 0px', threshold: 0 }).observe(walk);
+  // As the walk scrolls away, its controls fade out so they never slide up under the header.
+  const leaving = () => { const b = walk.getBoundingClientRect().bottom; walk.classList.toggle("leaving", b < innerHeight - 40); };
+  addEventListener('scroll', leaving, { passive: true }); leaving();
 }
 
 /* ---------- Demo video plays muted while in view ---------- */

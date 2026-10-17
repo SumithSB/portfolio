@@ -31,6 +31,10 @@ export interface JointState {
   headY: number; headZ: number;
   handHide: number;
   transitionAlpha: number;
+  // gait: its own phase, a smoothed speed, and how much he is walking (0 standing, 1 walking)
+  gait: number; speed: number; walkAmt: number; vel: number;
+  // idle life: weight shifts and glances
+  glance: number; glanceTarget: number; nextGlance: number; wave: number;
 }
 
 export interface Person extends THREE.Group {
@@ -174,7 +178,7 @@ export function makePerson(stage: number): Person {
   const joints: JointState = {
     armFZ: 0, armFX: 0, armBZ: 0, armBX: 0,
     elbowFZ: 0.25, elbowFX: 0, elbowBZ: 0.25, elbowBX: 0,
-    torsoZ: 0, torsoY: 0, headY: 0, headZ: 0, handHide: 0, transitionAlpha: 1,
+    torsoZ: 0, torsoY: 0, headY: 0, headZ: 0, handHide: 0, transitionAlpha: 1, gait: 0, speed: 0, walkAmt: 0, vel: 0, glance: 0, glanceTarget: 0, nextGlance: 2 + stage, wave: 0
   };
   g.torso = torso; g.pelvis = pelvis;
   g.footF = legF.userData.foot as THREE.Group; g.footB = legB.userData.foot as THREE.Group;
@@ -192,6 +196,7 @@ export interface PoseState {
   look: number;
   dt: number;
   signedSpeed: number;
+  dx: number; // distance moved along the road this frame
 }
 
 const damp = (cur: number, target: number, k: number) => cur + (target - cur) * k;
@@ -206,63 +211,134 @@ export function setPersonTransition(p: Person, weight: number) {
 }
 
 // One function drives every pose so transitions stay smooth.
+// The walk is built like a person's: the stride comes from the distance actually covered (so feet don't slide),
+// cadence has a human ceiling, a stopping step is finished rather than frozen, and the body carries its weight.
 export function pose(p: Person, s: PoseState) {
   const { legF, legB, armF, armB, head, phone, look } = p.userData;
-  const k = s.moving;
-  const dir = Math.sign(s.signedSpeed) || 1;
-  const ph = s.phase;
+  const j = p.joints;
+  const dt = Math.max(0, Math.min(0.1, s.dt));
+  const e = (rate: number) => 1 - Math.exp(-dt * rate);
+  const legLen = look.H * (look.H < 1.3 ? 0.43 : 0.47);
+
+  // How fast he is going, smoothed, and whether he is walking at all (eases in quickly, out more slowly).
+  const v = Math.abs(s.dx) / Math.max(dt, 1e-3);
+  j.speed += (v - j.speed) * e(4);
+  const going = s.mode === 'walk' && j.speed > 0.15 ? 1 : 0;
+  j.walkAmt += (going - j.walkAmt) * e(going ? 5 : 2.6);
+  const w = j.walkAmt;
+  const brisk = Math.min(1, j.speed / 2.6);
+  const amp = w * (0.36 + 0.24 * brisk); // longer strides when brisk
+
+  // Phase: one half-turn per step. The step length matches the leg swing, and cadence is capped at about three steps a second.
+  const stepLen = 2 * legLen * Math.sin(Math.max(amp, 0.2));
+  const maxRate = Math.PI * (2 + brisk);
+  if (going) j.gait += Math.min(Math.abs(s.dx) * Math.PI / stepLen, maxRate * dt);
+  else if (w > 0.02) { // finish the step he was on, then stand
+    const rest = Math.ceil(j.gait / Math.PI - 0.15) * Math.PI;
+    j.gait += Math.min(Math.max(0, rest - j.gait), Math.PI * 2.2 * dt);
+  }
+  const ph = j.gait;
   const stride = Math.sin(ph);
-  const doubleStep = -Math.cos(ph * 2);
-  p.position.y = p.baseY + Math.max(0, doubleStep * 0.5 + 0.5) * 0.048 * k;
 
-  const sw = stride * 0.62 * k;
-  legF.rotation.z = sw; legB.rotation.z = -sw;
-  const kneeF = legF.userData.knee as THREE.Group, kneeB = legB.userData.knee as THREE.Group;
-  const swingF = Math.max(0, Math.cos(ph));
-  const cushionF = Math.max(0, -Math.sin(ph)) * 0.18;
-  const swingB = Math.max(0, Math.cos(ph + Math.PI));
-  const cushionB = Math.max(0, -Math.sin(ph + Math.PI)) * 0.18;
-  kneeF.rotation.z = -(swingF * 0.78 + cushionF) * k;
-  kneeB.rotation.z = -(swingB * 0.78 + cushionB) * k;
-  const heel = (phase: number) => Math.max(0, Math.sin(phase - 0.35)) * 0.26 - Math.max(0, -Math.sin(phase + 0.25)) * 0.34;
-  p.footF.rotation.z = heel(ph) * k;
-  p.footB.rotation.z = heel(ph + Math.PI) * k;
+  // Legs by inverse kinematics. Each foot has a target: planted feet slide back at exactly the body's pace (so they
+  // stay put on the road), swinging feet arc forward to the next footfall. Hip and knee angles are solved to reach it.
+  const TAU = Math.PI * 2;
+  const S = 2 * legLen * Math.sin(amp);
+  const thigh = legLen * 0.5, shin = legLen * 0.46, reach = (thigh + shin) * 0.999;
+  const ankle0 = -0.955 * legLen; // ankle height below the hip when standing, knees soft
+  const footAt = (q: number) => {
+    let u = q % TAU; if (u < 0) u += TAU;
+    if (u >= Math.PI / 2 && u < Math.PI * 1.5) { // planted, rolling onto the toes at the end
+      const k = (u - Math.PI / 2) / Math.PI;
+      return { x: S / 2 - S * k, lift: 0, pitch: -(Math.max(0, (k - 0.7) / 0.3) ** 2) * 0.55 * w, stance: true };
+    }
+    const k = ((u + Math.PI / 2) % TAU) / Math.PI; // swinging: 0 at toe-off, 1 at heel strike
+    const ease = k * k * (3 - 2 * k);
+    return {
+      x: -S / 2 + S * ease,
+      lift: Math.sin(Math.PI * Math.min(1, k * 1.15)) * legLen * 0.11 * w,
+      pitch: (-0.5 * (1 - k) ** 3 + 0.28 * Math.max(0, (k - 0.6) / 0.4) ** 2) * w,
+      stance: false,
+    };
+  };
+  const fF = footAt(ph), fB = footAt(ph + Math.PI);
+  // The hips ride as high as the planted leg allows: highest over the foot, lowest when both feet are down.
+  const hipFor = (f: { x: number; lift: number }) => Math.sqrt(Math.max(0, reach * reach - f.x * f.x)) + ankle0 + f.lift;
+  let bob = Math.min(fF.stance ? hipFor(fF) : Infinity, fB.stance ? hipFor(fB) : Infinity);
+  if (!Number.isFinite(bob)) bob = 0;
+  bob = Math.min(bob, 0.02 * legLen) - 0.012 * w;
+  const solve = (leg: THREE.Group, f: { x: number; lift: number; pitch: number }) => {
+    const dx = f.x, ty = ankle0 + f.lift - bob; // the target, relative to the hip
+    const dist = Math.min(Math.hypot(dx, ty), reach);
+    const flex = Math.PI - Math.acos(Math.max(-1, Math.min(1, (thigh * thigh + shin * shin - dist * dist) / (2 * thigh * shin))));
+    const hip = Math.atan2(dx, -ty) + Math.acos(Math.max(-1, Math.min(1, (thigh * thigh + dist * dist - shin * shin) / (2 * thigh * dist))));
+    leg.rotation.z = hip;
+    (leg.userData.knee as THREE.Group).rotation.z = -flex;
+    (leg.userData.foot as THREE.Group).rotation.z = f.pitch - hip + flex; // keeps the sole level on the ground
+  };
+  solve(legF, fF); solve(legB, fB);
 
-  p.pelvis.rotation.y = -stride * 0.09 * k;
-  p.pelvis.rotation.x = stride * 0.045 * k;
+  // Weight: hips sway over the standing foot.
+  const breath = Math.sin(s.time * 1.7) * 0.004 * (1 - w);
+  p.position.y = p.baseY + bob + breath;
+  // Standing still, he shifts his weight from foot to foot every few seconds.
+  const shift = Math.sin(s.time * 0.42 + p.blinkEvery) * (1 - w);
+  p.position.z = Math.cos(ph) * 0.022 * w + shift * 0.025;
+  p.pelvis.rotation.y = -stride * 0.12 * amp;
+  p.pelvis.rotation.x = Math.cos(ph) * 0.07 * w + shift * 0.035;
 
   const holds = !!look.phone && s.mode !== 'pockets' && s.mode !== 'wave';
   const showPhone = holds && (look.phone !== 'today' || s.mode === 'phone');
   if (phone) phone.visible = showPhone;
 
-  let tArmFZ = -sw * 0.8, tArmFX = 0, tArmBZ = sw * 0.8, tArmBX = 0;
-  let tElbowFZ = 0.25, tElbowFX = 0, tElbowBZ = 0.25, tElbowBX = 0;
-  let hideHands = 0;
+  // Arms swing against the legs, a beat late, with more elbow on the forward swing.
+  const armPh = ph - 0.3;
+  const armSwing = Math.sin(armPh) * amp * 0.85;
+  let tArmFZ = -armSwing, tArmFX = 0.06, tArmBZ = armSwing, tArmBX = -0.06;
+  let tElbowFZ = 0.18 + Math.max(0, -Math.sin(armPh)) * 0.45 * w, tElbowFX = 0;
+  let tElbowBZ = 0.18 + Math.max(0, Math.sin(armPh)) * 0.45 * w, tElbowBX = 0;
+  let hideHands = 0, rate = 9;
+  j.wave += ((s.mode === 'wave' ? 1 : 0) - j.wave) * e(s.mode === 'wave' ? 3.2 : 4);
   if (s.mode === 'wave') {
-    tArmFZ = 2.6 + Math.sin(s.t * 9) * 0.25; tElbowFZ = 0.5; tArmBZ = 0.05; tElbowBZ = 0;
+    // Raise the arm, then wave from the elbow, not the shoulder.
+    // Arm out to the side and up, forearm upright, hand waving side to side from the elbow.
+    tArmFX = -2.2; tArmFZ = 0.25; tElbowFZ = 0.15; tElbowFX = -0.9 + Math.sin(s.t * 7.5) * 0.38 * j.wave;
+    tArmBZ = 0.04; tElbowBZ = 0.12; rate = 6;
   } else if (s.mode === 'pockets') {
     tArmFX = -0.32; tArmBX = 0.32; tArmFZ = -0.1; tArmBZ = -0.1;
     tElbowFZ = 0.15; tElbowBZ = 0.15; tElbowFX = 0.75; tElbowBX = -0.75;
-    hideHands = 1;
+    hideHands = 1; rate = 5;
   } else if (showPhone) {
-    tArmFZ = 0.9; tElbowFZ = 1.25; tArmBZ = sw * 0.8; tElbowBZ = 0.25;
+    tArmFZ = 0.82 + Math.sin(s.time * 1.3) * 0.02; tElbowFZ = 1.3; tArmBZ = armSwing; tElbowBZ = 0.22; rate = 6;
   } else if (s.mode === 'idle') {
-    tArmFZ = Math.sin(s.t * 1.3) * 0.05; tElbowFZ = 0.35;
+    tArmFZ = 0.02 + shift * 0.03; tArmBZ = -0.02 - shift * 0.03; tElbowFZ = 0.2; tElbowBZ = 0.2;
   }
 
-  const blend = 1 - Math.exp(-Math.max(0, s.dt) * 10);
-  const j = p.joints;
+  // Idle glances: every few seconds he looks somewhere else for a moment.
+  if (w < 0.3 && s.time > j.nextGlance) {
+    j.glanceTarget = j.glanceTarget === 0 ? (Math.sin(s.time * 12.9898) > 0 ? 0.5 : -0.35) : 0;
+    j.nextGlance = s.time + (j.glanceTarget === 0 ? 3 + (s.time % 2.5) : 0.9 + (s.time % 0.8));
+  }
+  if (w > 0.5) j.glanceTarget = 0;
+  j.glance += (j.glanceTarget - j.glance) * e(j.glanceTarget === 0 ? 4 : 7);
+
+  const blend = e(rate);
   j.armFZ = damp(j.armFZ, tArmFZ, blend); j.armFX = damp(j.armFX, tArmFX, blend);
   j.armBZ = damp(j.armBZ, tArmBZ, blend); j.armBX = damp(j.armBX, tArmBX, blend);
   j.elbowFZ = damp(j.elbowFZ, tElbowFZ, blend); j.elbowFX = damp(j.elbowFX, tElbowFX, blend);
   j.elbowBZ = damp(j.elbowBZ, tElbowBZ, blend); j.elbowBX = damp(j.elbowBX, tElbowBX, blend);
   j.handHide = damp(j.handHide, hideHands, blend);
-  const lean = -0.085 * k * dir * p.facing;
-  j.torsoZ = damp(j.torsoZ, lean, blend);
-  j.torsoY = damp(j.torsoY, stride * 0.11 * k, blend);
-  const headZ = Math.sin(ph * 2) * 0.02 * k + (showPhone ? -0.18 : 0);
-  j.headY = damp(j.headY, s.look * 0.6, blend);
-  j.headZ = damp(j.headZ, headZ, blend);
+
+  // Lean into acceleration, not speed: forward as he sets off, back as he stops.
+  const vel = s.signedSpeed;
+  const accel = (vel - j.vel) / Math.max(dt, 1e-3); j.vel += (vel - j.vel) * e(6);
+  const lean = -(0.05 * w + Math.max(-0.06, Math.min(0.06, accel * 0.004))) * p.facing;
+  j.torsoZ = damp(j.torsoZ, lean, e(5));
+  j.torsoY = damp(j.torsoY, stride * 0.16 * amp, e(12)); // shoulders counter the hips
+  // The head stays level while the body moves (people keep their eyes steady), and leads any turn.
+  const headZ = -lean * 0.6 + (showPhone ? -0.2 : 0) + Math.sin(s.time * 0.8) * 0.01 * (1 - w);
+  j.headY = damp(j.headY, s.look * 0.6 + j.glance - j.torsoY, e(6));
+  j.headZ = damp(j.headZ, headZ, e(5));
 
   armF.rotation.set(j.armFX, 0, j.armFZ);
   armB.rotation.set(j.armBX, 0, j.armBZ);
@@ -276,7 +352,7 @@ export function pose(p: Person, s: PoseState) {
 
   p.torso.rotation.z = j.torsoZ;
   p.torso.rotation.y = j.torsoY;
-  p.torso.scale.y = 1 + Math.sin(s.time * 2.1) * 0.012 * (1 - k * 0.6);
+  p.torso.scale.y = 1 + Math.sin(s.time * 1.7) * 0.012 * (1 - w * 0.6); // breathing
   head.rotation.set(0, j.headY, j.headZ);
 
   const local = s.time % p.blinkEvery;
