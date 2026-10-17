@@ -33,7 +33,7 @@
   --on-dark: #ECEBE6;
   --on-dark-soft: #A8B3BA;
   --accent: #C8922F;
-  --accent-deep: #B07E24;
+  --accent-deep: #DCA848;
   --on-accent: #1F2930;
   --display: 'Big Shoulders', Impact, 'Arial Narrow', sans-serif;
   --text: 'Public Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
@@ -324,7 +324,7 @@ html.h-mode .hbar span { display: block; height: 100%; background: linear-gradie
 html.js:not(.rm) .reveal { height: 220vh; }
 .reveal .sticky { padding-block: 120px; }
 html.js:not(.rm) .reveal .sticky { position: sticky; top: 0; min-height: 100svh; display: flex; align-items: center; padding-block: 0; }
-.reveal p { font-size: clamp(30px, 3.8vw, 58px); line-height: 1.12; font-weight: 600; letter-spacing: -0.02em; max-width: 24ch; }
+.reveal p { font-size: clamp(30px, 3.8vw, 58px); line-height: 1.25; font-weight: 600; letter-spacing: -0.02em; max-width: 24ch; }
 .reveal .wd { color: #7B868E; transition: color 300ms ease; }
 .reveal .wd.lit { color: var(--on-dark); }
 
