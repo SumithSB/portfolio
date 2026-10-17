@@ -50,9 +50,9 @@ const skills = [
       <p class="eyebrow">Sumith Bhandari · London, UK</p>
       <nav aria-label="Main">
         <ul>
+          <li><a href="#about">About</a></li>
           <li><a href="#projects">Projects</a></li>
           <li><a href="#experience">Experience</a></li>
-          <li><a href="#about">About</a></li>
           <li><a href="#contact">Contact</a></li>
           {hasCv && <li><a class="nav-cv" href={cvHref} download>CV</a></li>}
         </ul>
@@ -72,11 +72,10 @@ const skills = [
           </h1>
           <p class="tagline" data-rise>AI Software Engineer in London. 4+ years of production backend and AI agent work in Python and TypeScript.</p>
           <div class="actions" data-rise>
-            <a class="btn" id="magnet" href="#projects">See my projects</a>
+            <a class="btn" id="magnet" href="#reveal">Read the story</a>
             {hasCv && <a class="btn ghost" href={cvHref} download>Download CV</a>}
             <a class="mail" href={`mailto:${email}`}>{email}</a>
           </div>
-          <p class="availability" data-rise>Open to AI Software Engineer, Applied AI and Forward Deployed Engineer roles in London. Contract or permanent.</p>
         </div>
         <div class="flow-stage" id="flow-stage" aria-hidden="true">
           <div class="rig" id="rig">
@@ -107,6 +106,32 @@ const skills = [
         </div>
       </div>
     </div>
+
+    <div class="reveal wrap" id="reveal">
+      <div class="sticky"><div class="inner">
+        <p id="reveal-line">I'm an AI Software Engineer in London. I build AI agents and the APIs, data and deployments that keep them running. I also build open-source tools for coding agents, like Claude Anchor and Brainvault.</p>
+      </div></div>
+    </div>
+
+    <section class="about sec wrap" id="about" aria-labelledby="about-h">
+      <div class="inner">
+        <div class="pin">
+          <h2 class="display" id="about-h">About</h2>
+          <div class="stack" id="pin-stack" aria-hidden="true">
+            <div class="slab" style="--i:0"><span>Drogher</span></div>
+            <div class="slab" style="--i:1"><span>TechMachinery</span></div>
+            <div class="slab" style="--i:2"><span>Leicester</span></div>
+            <div class="slab top" style="--i:3"><span>London</span></div>
+          </div>
+        </div>
+        <div class="steps">
+          <div class="step on" data-i="0"><span class="when" aria-hidden="true">Drogher</span><p>I started building software for real users before I finished my degree. In 2020 I co-founded Drogher Technologies in Bengaluru. We built CornerCart, a quick-commerce app that linked local shops with customers and handled orders in real time. I led a team of 4, and later made the call to pivot from B2C to B2B consulting.</p></div>
+          <div class="step" data-i="1"><span class="when" aria-hidden="true">TechMachinery</span><p>Alongside that I joined TechMachinery Labs, part-time in my final year and then full-time. I started with APIs, auth and payments. Later I led backend work on Pluto, a platform where engineers ask questions about heat exchanger design in plain language and get answers from a multi-agent system.</p></div>
+          <div class="step" data-i="2"><span class="when" aria-hidden="true">Leicester</span><p>In 2025 I came to the UK for an MSc in Advanced Computer Science at the University of Leicester. I finished with a Distinction, and my dissertation, Fashion AI, won Best Technical Project 2026. During the MSc I also took a contract with Visiminds, where I built a security testing platform that turned a 4-hour job into a 15-minute one.</p></div>
+          <div class="step" data-i="3"><span class="when" aria-hidden="true">London</span><p>Now I'm in London, building production AI agents.</p></div>
+        </div>
+      </div>
+    </section>
 
     <section class="projects sec" id="projects" aria-labelledby="projects-h">
       <div class="wrap"><div class="inner sec-head">
@@ -364,32 +389,6 @@ brainvault install</code></pre>
       </div>
     </section>
 
-    <div class="reveal wrap" id="reveal">
-      <div class="sticky"><div class="inner">
-        <p id="reveal-line">I'm an AI Software Engineer in London. I build AI agents and the APIs, data and deployments that keep them running. I also build open-source tools for coding agents, like Claude Anchor and Brainvault.</p>
-      </div></div>
-    </div>
-
-    <section class="about sec wrap" id="about" aria-labelledby="about-h">
-      <div class="inner">
-        <div class="pin">
-          <h2 class="display" id="about-h">About</h2>
-          <div class="stack" id="pin-stack" aria-hidden="true">
-            <div class="slab" style="--i:0"><span>Drogher</span></div>
-            <div class="slab" style="--i:1"><span>TechMachinery</span></div>
-            <div class="slab" style="--i:2"><span>Leicester</span></div>
-            <div class="slab top" style="--i:3"><span>London</span></div>
-          </div>
-        </div>
-        <div class="steps">
-          <div class="step on" data-i="0"><span class="when" aria-hidden="true">Drogher</span><p>I started building software for real users before I finished my degree. In 2020 I co-founded Drogher Technologies in Bengaluru. We built CornerCart, a quick-commerce app that linked local shops with customers and handled orders in real time. I led a team of 4, and later made the call to pivot from B2C to B2B consulting.</p></div>
-          <div class="step" data-i="1"><span class="when" aria-hidden="true">TechMachinery</span><p>Alongside that I joined TechMachinery Labs, part-time in my final year and then full-time. I started with APIs, auth and payments. Later I led backend work on Pluto, a platform where engineers ask questions about heat exchanger design in plain language and get answers from a multi-agent system.</p></div>
-          <div class="step" data-i="2"><span class="when" aria-hidden="true">Leicester</span><p>In 2025 I came to the UK for an MSc in Advanced Computer Science at the University of Leicester. I finished with a Distinction, and my dissertation, Fashion AI, won Best Technical Project 2026. During the MSc I also took a contract with Visiminds, where I built a security testing platform that turned a 4-hour job into a 15-minute one.</p></div>
-          <div class="step" data-i="3"><span class="when" aria-hidden="true">London</span><p>Now I'm in London, building production AI agents.</p></div>
-        </div>
-      </div>
-    </section>
-
     <section class="skills sec wrap" id="skills" aria-labelledby="skills-h">
       <div class="inner">
         <div class="sec-head"><h2 class="display" id="skills-h">Skills</h2></div>
@@ -424,7 +423,6 @@ brainvault install</code></pre>
     <section class="contact sec wrap" id="contact" aria-labelledby="contact-h">
       <div class="inner">
         <div class="sec-head"><h2 class="display" id="contact-h">Contact</h2></div>
-        <p class="say">I'm open to AI Software Engineer, Applied AI and Forward Deployed Engineer roles in London, contract or permanent. If you're building something with AI agents and need it to work in production, I'd like to hear about it.</p>
         <a class="mail display" id="mail" href={`mailto:${email}`}><span class="ln"><span>sumithsbhandari@</span></span><span class="ln"><span>gmail.com</span></span></a>
         <div class="contact-row">
           <button type="button" class="btn" id="copy-email" hidden>Copy email</button>

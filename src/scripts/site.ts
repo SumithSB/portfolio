@@ -282,7 +282,7 @@ if (reduce) {
   // 7. About: the stack spreads as you read down the layers.
   const pinStack = $('#pin-stack');
   const about = $('#about');
-  if (pinStack && about) scroll(animate(pinStack, { '--gap': ['18px', '58px'] } as never, { ease: 'linear' }), { target: about, offset: ['start center', 'end end'] });
+  if (pinStack && about && window.innerWidth >= 1024) scroll(animate(pinStack, { '--gap': ['18px', '58px'] } as never, { ease: 'linear' }), { target: about, offset: ['start center', 'end end'] });
 
   // 8. Contact: the address rises out of its mask; the plan builds, amber block last.
   const mailLines = $$('#mail .ln > span');
