@@ -344,7 +344,7 @@ export function buildWorld(scene: THREE.Scene): World {
     }
     eye.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(spokePoints), new THREE.LineBasicMaterial({ color: 0xB4AC9B, transparent: true, opacity: 0.4 })));
     const support = box(0.18, 8, 0.18, mat(0xB4AC9B)); support.position.set(-1.3, -3.7, 0); support.rotation.z = -0.32; eye.add(support);
-    eye.position.set(o + 42, 8, -29); add(eye);
+    eye.position.set(o + 42, 8, -29); eye.userData.farBank = true; add(eye); // the painted night backdrop has its own Eye
     // far bank skyline
     const win = lit(0xF2A93B);
     for (let i = 0; i < 14; i++) { const w = 4 + R() * 4, h = 8 + R() * 22, x = o + i * 5.6;
