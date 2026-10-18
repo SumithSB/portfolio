@@ -182,12 +182,6 @@ export function startWalk(ui: WalkUI) {
   const arrive = (stage: number, data: Sculpted) => {
     if (stopped) return;
     const p = makePerson(stage, data); p.visible = false; scene.add(p); people[stage] = p;
-    // As an adult he wears a model generated from a photo of him; the sculpted figure stays if it can't load.
-    if (stage === CHAPTERS - 1) {
-      import('./realfig')
-        .then(({ wearModel }) => wearModel(p, stage, `${assetBase}models/sumith-adult.glb`, { texture: `${assetBase}models/sumith-adult.webp` }))
-        .catch(() => {});
-    }
     if (stage === first) {
       clearTimeout(loadTimer);
       if (!loopStarted) { loopStarted = true; requestAnimationFrame(frame); }

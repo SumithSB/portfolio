@@ -37,8 +37,6 @@ export interface Person extends THREE.Group {
   userData: {
     look: Look;
     legF: THREE.Object3D; legB: THREE.Object3D; armF: THREE.Object3D; armB: THREE.Object3D; head: THREE.Object3D; phone?: THREE.Object3D;
-    /** Set once a generated model replaces the sculpted body. */
-    realistic?: boolean;
   };
 }
 
@@ -326,13 +324,6 @@ export function pose(p: Person, s: PoseState) {
     tArmFZ = 0.82 + Math.sin(s.time * 1.3) * 0.02; tElbowFZ = 1.3; tArmBZ = armSwing; tElbowBZ = 0.22; rate = 6;
   } else if (s.mode === 'idle') {
     tArmFZ = 0.02 + shift * 0.03; tArmBZ = -0.02 - shift * 0.03; tElbowFZ = 0.2; tElbowBZ = 0.2;
-  }
-
-  if (p.userData.realistic) {
-    // The generated model's arms are joined to its sides, so they only swing a little and never lift.
-    tArmFX = 0.02; tArmBX = -0.02; tArmFZ = -armSwing * 0.3; tArmBZ = armSwing * 0.3;
-    tElbowFX = 0; tElbowBX = 0; tElbowFZ = 0.06; tElbowBZ = 0.06;
-    if (phone) phone.visible = false;
   }
 
   // Idle glances: every few seconds he looks somewhere else for a moment.
