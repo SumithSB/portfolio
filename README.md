@@ -2,6 +2,10 @@
 
 Source for https://sumithsb.com/, a one-page static site built with [Astro](https://astro.build).
 
+<p align="center">
+  <a href="https://sumithsb.com/"><img src="docs/walk.webp" width="600" alt="A 3D character walks through six chapters, from a Karnataka village at dawn to London at night, as the page scrolls" /></a>
+</p>
+
 ## Run it
 
 ```sh
