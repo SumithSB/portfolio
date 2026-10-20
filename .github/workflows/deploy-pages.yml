@@ -1,5 +1,5 @@
 # Build the Astro site and push dist/ to the "pages" branch. GitHub Pages serves from that branch.
-# Project URL: https://sumithsb.github.io/portfolio/
+# Project URL: https://sumithsb.com/
 # Settings → Pages: Source = "Deploy from a branch", Branch = pages, Folder = / (root).
 
 name: Deploy to GitHub Pages

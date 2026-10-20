@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://sumithsb.github.io/portfolio/sitemap.xml
+Sitemap: https://sumithsb.com/sitemap.xml
