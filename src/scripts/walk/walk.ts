@@ -8,6 +8,7 @@ import { dressWorld, weather, createBackdrops } from './dressing';
 import type { Sculpted } from './figure';
 import { LOOKS } from './looks';
 import { advanceRoot } from './locomotion';
+import { makeActor, type Actor, type ActorSpec } from './actor';
 
 // Light across one day: dawn, morning, noon, golden hour, dusk in the rain, night.
 interface Key { top: number; bottom: number; fog: number; sun: number; sunI: number; sunY: number; hemi: number; night: number; rain: number; exp: number }
@@ -38,6 +39,16 @@ const yearAt = (g: number) => {
   }
   return YEARS[YEARS.length - 1][1];
 };
+// Who plays him in each chapter: a boy, then the same man, dressed a little differently as the years go on.
+const ADULT = { model: 'adult', skins: 'm022', normals: 'm022', bones: 'Bip01', height: 1.74 };
+const CAST: ActorSpec[] = [
+  { model: 'child1', skins: 'kid', normals: 'cm001', bones: 'Bip02', height: 1.25 },
+  ADULT,
+  { ...ADULT, tint: 0x3F7A55 },
+  { ...ADULT, tint: 0x5A6E8C },
+  { ...ADULT, tint: 0x8A3440 },
+  { ...ADULT, tint: 0x3A5A8E },
+];
 const TIME_LABELS = ['Dawn', 'Morning', 'Noon', 'Golden hour', 'After the rain', 'Night'];
 const PLACE_LABELS = ['Karnataka, India', 'Lockdown, 2020', 'The first startup', 'Bengaluru, India', 'Leicester, UK', 'London, UK'];
 
@@ -175,19 +186,37 @@ export function startWalk(ui: WalkUI) {
 
   // Six versions of him, one per age. Each is sculpted in a background worker, the current chapter's first.
   const people: Array<Person | undefined> = new Array(CHAPTERS);
+  // The made-up humans replace the sculpted figures as they load; a figure stays if its avatar can't load.
+  const actors: Array<Actor | undefined> = new Array(CHAPTERS);
+  // Load the opening chapter's avatar first, then the rest one at a time. `firstCast` settles once the opening
+  // one is in (or has failed), so the scene never opens on a placeholder figure that then swaps.
+  const cast = (order: number[]) => {
+    const one = (i: number) => makeActor(assetBase, CAST[i]).then((a) => {
+      if (stopped) return;
+      a.root.visible = false; scene.add(a.root); actors[i] = a;
+    }).catch(() => {});
+    const opening = one(order[0]);
+    opening.then(() => order.slice(1).reduce((prev, i) => prev.then(() => one(i)), Promise.resolve()));
+    return opening;
+  };
+  const figureH = (i: number) => actors[i] ? CAST[i].height : LOOKS[i].H;
   let loopStarted = false;
   const arrive = (stage: number, data: Sculpted) => {
     if (stopped) return;
     const p = makePerson(stage, data); p.visible = false; scene.add(p); people[stage] = p;
     if (stage === first) {
       clearTimeout(loadTimer);
-      if (!loopStarted) { loopStarted = true; requestAnimationFrame(frame); }
+      if (!loopStarted) {
+        loopStarted = true;
+        Promise.race([firstCast, new Promise((done) => setTimeout(done, 3500))]).then(() => { if (!stopped) requestAnimationFrame(frame); });
+      }
     }
   };
   const r0 = ui.root.getBoundingClientRect();
   const first = Math.min(CHAPTERS - 1, Math.floor(clamp(-r0.top / Math.max(1, r0.height - innerHeight)) * CHAPTERS));
   backdrops.start(first);
   const order = [first, ...Array.from({ length: CHAPTERS }, (_, i) => i).filter((i) => i !== first)];
+  const firstCast = cast(order);
   loadTimer = setTimeout(fail, 12000);
   try {
     worker = new Worker(new URL('./figure.worker.ts', import.meta.url), { type: 'module' });
@@ -293,7 +322,7 @@ export function startWalk(ui: WalkUI) {
 
   // Frame one chapter's shot. Through each chapter the camera slowly swings from a three-quarter view of him
   // walking towards us round to his side, and eases in a little, so the place opens up in depth as he goes.
-  const frameShot = (c: number, t: number, H = LOOKS[c].H) => {
+  const frameShot = (c: number, t: number, H = figureH(c)) => {
     const narrow = cam.aspect < 0.8;
     const xc = roadX(c, camW / K), u = clamp(camW / K - c, -0.3, 1.3);
     const still = reduce || coarse;
@@ -387,7 +416,7 @@ export function startWalk(ui: WalkUI) {
 
     let mode: PoseState['mode'] = 'walk';
     if (atEnd) mode = 'phone';
-    else if (atStart && stillFor > 3 && !waved && !reduce) { mode = 'wave'; waveT += dt; if (waveT > 1.8) { waved = true; waveT = 0; } }
+    else if (atStart && stillFor > 3 && !waved && !reduce) { mode = 'wave'; waveT += dt; if (waveT > 2.6) { waved = true; waveT = 0; } }
     else if (stillFor > 0.4) mode = 'idle';
     else waveT = 0;
 
@@ -404,14 +433,19 @@ export function startWalk(ui: WalkUI) {
       setPersonTransition(person, 1);
       person.position.x = i === from ? xFrom : xTo;
       person.rotation.y += (turn - person.rotation.y) * turnBlend;
-      pose(person, ps);
+      const actor = actors[i];
+      if (actor) {
+        person.visible = false;
+        actor.root.position.x = person.position.x; actor.root.rotation.y = person.rotation.y;
+        actor.update({ mode, moving, distance: w, dt });
+      } else pose(person, ps);
     });
     const p = people[ch];
 
     // At the end the phone in his hand sends lines of light out across the city.
-    const phoneObj = p?.userData.phone;
+    const phoneObj = actors[ch]?.phone ?? p?.userData.phone;
     if (p && phoneObj && atEnd) {
-      p.updateMatrixWorld(true); phoneObj.getWorldPosition(phoneAt);
+      (actors[ch]?.root ?? p).updateMatrixWorld(true); phoneObj.getWorldPosition(phoneAt);
       world.lightLines.forEach((l) => l.position.set(phoneAt.x - END_X - 0.2, phoneAt.y - 1.3, phoneAt.z - 0.3));
     }
     world.lightLines.forEach((l, i) => {
@@ -433,17 +467,21 @@ export function startWalk(ui: WalkUI) {
     }
 
     // Render: the old place first, kept aside, then the new one dissolving over it.
-    const solo = (i: number) => people.forEach((person, j) => { if (person) person.visible = j === i; });
+    const solo = (i: number) => people.forEach((person, j) => {
+      const actor = actors[j];
+      if (actor) actor.root.visible = j === i;
+      if (person) person.visible = j === i && !actor;
+    });
     let lit: ReturnType<typeof light>;
     if (crossing && mix > 0.002 && mix < 0.998) {
       // both shots share one lens, sized between his two heights, so he stays put and visibly grows
-      const H = lerp(LOOKS[from].H, LOOKS[to].H, mix);
+      const H = lerp(figureH(from), figureH(to), mix);
       solo(from); const a = light(from, xFrom, t); frameShot(from, t, H);
       post.capture(mix);
       solo(to); const bl = light(to, xTo, t); frameShot(to, t, H);
       lit = { f: lerp(a.f, bl.f, mix), exp: bl.exp, night: lerp(a.night, bl.night, mix), warmth: lerp(a.warmth, bl.warmth, mix) };
     } else {
-      solo(ch); lit = light(ch, x, t); frameShot(ch, t, crossing ? lerp(LOOKS[from].H, LOOKS[to].H, mix) : LOOKS[ch].H);
+      solo(ch); lit = light(ch, x, t); frameShot(ch, t, crossing ? lerp(figureH(from), figureH(to), mix) : figureH(ch));
     }
     const era = lerp(ERA[from], ERA[to], crossing ? mix : 1);
     post.update(t, lit.night, lit.warmth, fade, clamp(1 - era / 0.45), smooth(clamp((era - 0.6) / 0.4)));
