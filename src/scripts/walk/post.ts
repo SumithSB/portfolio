@@ -36,6 +36,28 @@ const Grade = {
     }`,
 };
 
+// The dissolve between chapters: the previous place, captured a moment earlier this frame, melts into the next one.
+// Bright parts go first, through a soft grain, the way film burns from one shot to the next.
+const Blend = {
+  uniforms: { tDiffuse: { value: null }, tPrev: { value: null }, amount: { value: 0 }, gain: { value: 1 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `
+    uniform sampler2D tDiffuse, tPrev; uniform float amount, gain; varying vec2 vUv;
+    float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+    void main(){
+      vec4 next = texture2D(tDiffuse, vUv);
+      vec4 prev = texture2D(tPrev, vUv) * gain;
+      float l = dot(prev.rgb, vec3(0.299, 0.587, 0.114));
+      float key = clamp(0.55 * (1.0 - l / (1.0 + l)) + 0.3 * noise(vUv * vec2(9.0, 6.0)) + 0.15 * noise(vUv * 40.0), 0.0, 1.0);
+      float w = smoothstep(key - 0.22, key + 0.22, amount * 1.44 - 0.22);
+      vec4 col = mix(prev, next, w);
+      col.rgb *= 1.0 + 0.16 * sin(amount * 3.14159); // a touch of light as the shots overlap
+      gl_FragColor = col;
+    }`,
+};
+
 export type Quality = 0 | 1 | 2; // 0 plain, 1 bloom and grade, 2 everything
 
 export function createPost(r: THREE.WebGLRenderer, scene: THREE.Scene, cam: THREE.PerspectiveCamera, quality: Quality) {
@@ -44,6 +66,14 @@ export function createPost(r: THREE.WebGLRenderer, scene: THREE.Scene, cam: THRE
   let ao: GTAOPass | undefined;
   let bloom: UnrealBloomPass | undefined;
   let grade: ShaderPass | undefined;
+  let blend: ShaderPass | undefined;
+  let prev: THREE.WebGLRenderTarget | undefined;
+  let blendAmount = 0, capturedExposure = 1, pending = false;
+  const size = new THREE.Vector2();
+  // The overlay used without the composer: the captured frame drawn over the new one, fading out.
+  const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const quadMat = new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false });
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), quadMat);
   let width = 1, height = 1, pixelRatio = 1;
   const ensure = () => {
     if (q === 0 || composer) return;
@@ -55,6 +85,7 @@ export function createPost(r: THREE.WebGLRenderer, scene: THREE.Scene, cam: THRE
       ao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.4, thickness: 0.6, scale: 1, samples: 8 });
       ao.blendIntensity = 0.55; composer.addPass(ao);
     }
+    blend = new ShaderPass(Blend); blend.enabled = false; composer.addPass(blend);
     bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.18, 0.45, 1.05);
     grade = new ShaderPass(Grade);
     composer.addPass(bloom); composer.addPass(grade); composer.addPass(new OutputPass());
@@ -63,7 +94,7 @@ export function createPost(r: THREE.WebGLRenderer, scene: THREE.Scene, cam: THRE
   };
   const dispose = () => {
     composer?.passes.forEach((pass) => pass.dispose()); composer?.dispose();
-    composer = undefined; ao = undefined; bloom = undefined; grade = undefined;
+    composer = undefined; ao = undefined; bloom = undefined; grade = undefined; blend = undefined;
   };
   ensure();
   return {
@@ -82,10 +113,32 @@ export function createPost(r: THREE.WebGLRenderer, scene: THREE.Scene, cam: THRE
       }
       fadeLevel = fade;
     },
-    render(dt: number) {
-      if (q === 0) { r.render(scene, cam); r.domElement.style.transition = 'none'; r.domElement.style.opacity = String(1 - fadeLevel); }
-      else { r.domElement.style.opacity = ''; composer!.render(dt); }
+    /** Keep this frame's view of the scene; the next render dissolves from it by `amount` (0 = all of it). */
+    capture(amount: number) {
+      r.getDrawingBufferSize(size);
+      if (!prev) prev = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: q === 0 ? 4 : 0 });
+      else if (prev.width !== size.x || prev.height !== size.y) prev.setSize(size.x, size.y);
+      r.setRenderTarget(prev); r.render(scene, cam); r.setRenderTarget(null);
+      blendAmount = amount; capturedExposure = r.toneMappingExposure; pending = true;
     },
-    dispose,
+    render(dt: number) {
+      const blendGain = capturedExposure / r.toneMappingExposure; // tone mapping happens after the blend, at the new exposure
+      if (q === 0) {
+        r.render(scene, cam); r.domElement.style.transition = 'none'; r.domElement.style.opacity = String(1 - fadeLevel);
+        if (pending && prev) {
+          quadMat.map = prev.texture; quadMat.opacity = 1 - blendAmount; quadMat.color.setScalar(blendGain);
+          const auto = r.autoClear; r.autoClear = false; r.render(quad, quadCam); r.autoClear = auto;
+        }
+      } else {
+        r.domElement.style.opacity = '';
+        if (blend) {
+          blend.enabled = pending && !!prev;
+          if (blend.enabled) { blend.uniforms.tPrev.value = prev!.texture; blend.uniforms.amount.value = blendAmount; blend.uniforms.gain.value = blendGain; }
+        }
+        composer!.render(dt);
+      }
+      pending = false;
+    },
+    dispose() { dispose(); prev?.dispose(); prev = undefined; quad.geometry.dispose(); quadMat.dispose(); },
   };
 }
