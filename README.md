@@ -21,6 +21,8 @@ In a cloud sandbox, prefix Astro commands with `ASTRO_TELEMETRY_DISABLED=1` if t
 
 The opening has six scroll-driven chapters, with separate portrait framing, signed locomotion, a walking-speed limit and scene cuts for large jumps. Captions have expandable detail; the primary navigation and “Skip to the work” link provide direct access to projects. Chapter controls and the story entry link move keyboard focus to the selected heading.
 
+He is aware of the viewer (`src/scripts/walk/presence.ts`): when you stop he meets your eye or follows your pointer, blinks, breathes and lifts his brows on eye contact; he waves once on arrival, turns round rather than walking backwards, and carries each chapter's prop (an umbrella in the rain is held by two-bone IK). All of it is layered over the motion-captured clips in world space after the mixer runs, and is off under reduced motion.
+
 The scene becomes visible after the first character is built and rendered. Reduced motion, missing WebGL, a failed character worker, or context loss use the readable chapter layout. Sound is opt-in and fades out when the story or browser tab is hidden.
 
 `?quality=0`, `?quality=1`, and `?quality=2` select plain rendering, bloom/grade, and ambient occlusion respectively. Mobile starts with plain rendering; desktop starts with bloom/grade and can reduce quality if frames are slow. The plain tier does not allocate postprocessing targets. The sky, character and environment are generated locally; the walk makes no external image or model requests.

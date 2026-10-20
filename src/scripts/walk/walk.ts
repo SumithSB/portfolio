@@ -29,9 +29,10 @@ const setStyle = (element: HTMLElement, property: string, value: string) => {
 };
 // How each chapter is filmed: 0 is a 2000s home video, 1 is today. The look sharpens as he grows up.
 const ERA = [0, 0.55, 0.65, 0.78, 0.9, 1];
-// The year rolls on as he walks: his childhood from 1999 to university in 2018 through the first chapter, then
-// each later chapter's year, turning over during the dissolves. [chapters of scroll, year]
-const YEARS: Array<[number, number]> = [[0, 1999], [0.86, 2018], [1.14, 2020], [2.86, 2020], [3.14, 2021], [3.86, 2021], [4.14, 2025], [4.86, 2025], [5.14, 2026]];
+// The year rolls on as he walks: his school years through the first chapter, while a boy plays him, then the years
+// race on to 2020 as he grows up mid-stride in the dissolve, and each later chapter's year turns over in its
+// dissolve. [chapters of scroll, year]
+const YEARS: Array<[number, number]> = [[0, 2008], [0.86, 2013], [1.14, 2020], [2.86, 2020], [3.14, 2021], [3.86, 2021], [4.14, 2025], [4.86, 2025], [5.14, 2026]];
 const yearAt = (g: number) => {
   for (let i = 1; i < YEARS.length; i++) {
     const [g0, y0] = YEARS[i - 1], [g1, y1] = YEARS[i];
