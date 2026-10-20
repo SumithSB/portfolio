@@ -223,9 +223,9 @@ export function buildWorld(scene: THREE.Scene): World {
       const x = o + 3 + 4 * 7.6; const g = new THREE.Group();
       g.add(at(box(7, 6, 5, mat(0xE8D5B0)), 0, 3, 0));
       g.add(at(box(7.4, 0.2, 1.8, mat(0x2F7A5B)), 0, 2.9, 3.2));
-      g.add(at(box(6.4, 2.6, 0.2, mat(0x3A2A1C)), 0, 1.3, 2.4));
+      g.add(at(box(6.4, 2.6, 0.2, mat(0x3A2A1C)), 0, 1.3, 2.62)); // proud of the wall, so the two faces never fight
       const goods = [0xD98A3A, 0xB5432F, 0x6E8A4E, 0xE3C25A, 0x8A5A3C];
-      for (let r = 0; r < 3; r++) for (let c = 0; c < 9; c++) g.add(at(box(0.5, 0.45, 0.3, mat(goods[(r + c) % 5])), -2.6 + c * 0.65, 0.5 + r * 0.7, 2.55));
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 9; c++) g.add(at(box(0.5, 0.45, 0.3, mat(goods[(r + c) % 5])), -2.6 + c * 0.65, 0.5 + r * 0.7, 2.9));
       g.add(at(box(2.2, 1.0, 0.8, mat(0xC9A36B)), 0, 0.5, 3.2));
       g.position.set(x, 0, -6); add(g);
       person(x - 0.4, -3.4, 0x6E8A4E);
