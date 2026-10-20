@@ -175,14 +175,20 @@ export function startWalk(ui: WalkUI) {
     scene.environment?.dispose();
   };
   // Watch the frame rate and step quality down if the device struggles. Never steps back up, so it can't flicker.
-  let slowFrames = 0, sampled = 0;
+  // A steady 30fps is not struggling: Chrome's Energy Saver and busy tabs cap pages there, and stepping down for it
+  // left fast laptops rendering at 1x. The first seconds stall on model parsing and shader compiles, so they don't count.
+  let slowFrames = 0, sampled = 0, badWindows = 0;
+  const judgeFrom = performance.now() + 4000;
   const adapt = (dt: number) => {
-    // Judge in short windows by majority, so one hitch never counts but a slow device steps down within a second or two.
-    sampled++; if (dt > 1 / 40) slowFrames++;
-    if (sampled < 12) return;
-    if (slowFrames > 8) {
+    if (performance.now() < judgeFrom || dt > 0.25) return;
+    // Judge in windows of about a second by majority, and only step down after two bad windows in a row.
+    sampled++; if (dt > 1 / 22) slowFrames++;
+    if (sampled < 30) return;
+    badWindows = slowFrames > 20 ? badWindows + 1 : 0;
+    if (badWindows >= 2) {
       if (post.quality > 0) post.setQuality((post.quality - 1) as Quality);
       else if (ratio > 1) { ratio = 1; r.setPixelRatio(1); lastW = 0; }
+      badWindows = 0;
     }
     sampled = 0; slowFrames = 0;
   };
