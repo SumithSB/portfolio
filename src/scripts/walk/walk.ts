@@ -39,14 +39,16 @@ const yearAt = (g: number) => {
   }
   return YEARS[YEARS.length - 1][1];
 };
-// Who plays him in each chapter: a boy, then the same man, dressed a little differently as the years go on.
+// Who plays him in each chapter: a boy, then the same man, dressed a little differently as the years go on, and
+// carrying what he carried then: a school bag, a sling bag at the first startup, a laptop bag in Bengaluru, an
+// umbrella in Leicester's rain.
 const ADULT = { model: 'adult', skins: 'm022', normals: 'm022', bones: 'Bip01', height: 1.74 };
 const CAST: ActorSpec[] = [
-  { model: 'child1', skins: 'kid', normals: 'cm001', bones: 'Bip02', height: 1.25 },
+  { model: 'child1', skins: 'kid', normals: 'cm001', bones: 'Bip02', height: 1.25, prop: 'schoolbag' },
   ADULT,
-  { ...ADULT, tint: 0x3F7A55 },
-  { ...ADULT, tint: 0x5A6E8C },
-  { ...ADULT, tint: 0x8A3440 },
+  { ...ADULT, tint: 0x3F7A55, prop: 'sling' },
+  { ...ADULT, tint: 0x5A6E8C, prop: 'backpack' },
+  { ...ADULT, tint: 0x8A3440, prop: 'umbrella' },
   { ...ADULT, tint: 0x3A5A8E },
 ];
 const TIME_LABELS = ['Dawn', 'Morning', 'Noon', 'Golden hour', 'After the rain', 'Night'];
@@ -280,6 +282,10 @@ export function startWalk(ui: WalkUI) {
   // scroll at a walking pace. `camW` trails `w` a little, so the camera follows him like an operator would.
   let w = targetWalk(progressAt()), prevW = w, camW = w, phase = 0, stillFor = 0, endT = 0;
   let velocity = 0;
+  // He knows you're there: he greets you once, turns round to walk back rather than walking backwards, glances
+  // over now and then as he goes, and meets your eye when he stops. The camera eases in when he does.
+  let backward = false, reverseFor = 0, greeted = false, greetT = -1, glanceFor = 0, nextGlance = 5, intimacy = 0;
+  const look = new THREE.Vector3();
   let cutT = -1, fade = 0, jumped = false;
   let smoothPtrX = 0, smoothPtrY = 0;
   let portraitShift = progressAt() < 0.012 ? -0.21 : 0.17;
@@ -335,11 +341,11 @@ export function startWalk(ui: WalkUI) {
     const hx = reduce ? 0 : (Math.sin(t * 0.61) + Math.sin(t * 1.07 + 1.3)) * 0.012;
     const hy = reduce ? 0 : (Math.sin(t * 0.83 + 2.1) + Math.sin(t * 1.41)) * 0.008;
     // close enough that he is a person in the frame, not a figure; the place still reads around him
-    const near = 0.84;
+    const near = 0.84 - 0.2 * intimacy;
     const lead = (narrow ? 0.75 : 2.1 - 1.3 * u) * near;
     const dist = H * (narrow ? 6.2 : 6.4) * (1.06 - 0.1 * u) * near;
     cam.position.set(xc + lead + px + hx, H * 0.95 + py + hy, dist);
-    cam.lookAt(xc - (narrow ? 0 : 1.35 * near), H * 0.8, 0);
+    cam.lookAt(xc - (narrow ? 0 : 1.35 * near), H * (0.8 + 0.07 * intimacy), 0);
     sky.position.copy(cam.position);
     backdrops.update(c, cam.position.y);
   };
@@ -422,11 +428,28 @@ export function startWalk(ui: WalkUI) {
     const atEnd = x > END_X - 2.5 && ch === CHAPTERS - 1;
     endT = atEnd ? endT + dt : 0;
 
+    if (!greeted && atStart && stillFor > 1.2 && !reduce && actors[ch]) { greeted = true; greetT = 0; }
+    if (greetT >= 0) { greetT += dt; if (greetT > 3.2 || moving > 0.05) greetT = -1; }
+
     let mode: PoseState['mode'] = 'walk';
     if (atEnd && stillFor > 0.65) mode = 'phone';
+    else if (greetT >= 0) mode = 'wave';
     else if (stillFor > 0.4) mode = 'idle';
 
-    const turn = stillFor > 0.4 || atEnd ? -0.55 : 0;
+    // A moment's scroll back doesn't turn him round; keep going back and he turns, by way of facing you.
+    if (signedSpeed < -0.2) reverseFor += dt; else if (signedSpeed > 0.2) { reverseFor = 0; backward = false; }
+    if (reverseFor > 0.3) backward = true;
+    const settled = stillFor > 0.4 || atEnd;
+    const turn = backward ? -Math.PI + (settled ? 0.55 : 0.12) : settled ? -0.55 : -0.06;
+
+    // Where he looks: at you (or wherever your pointer is) when he stops, now and then while he walks, and once
+    // up from his phone at the very end before going back to it.
+    if (moving > 0.05) { nextGlance -= dt; if (nextGlance <= 0) { glanceFor = 1.5; nextGlance = 7 + Math.random() * 6; } }
+    glanceFor = Math.max(0, glanceFor - dt);
+    const gaze = reduce ? 0 : mode === 'idle' || mode === 'wave' ? 1 : mode === 'walk' ? (glanceFor > 0 ? 0.75 : 0) : endT > 5 && endT < 7.4 ? 0.85 : 0;
+    look.copy(cam.position);
+    if (!coarse) { look.x += (pointerX - 0.5) * 2.4; look.y -= (pointerY - 0.5) * 1.2; }
+    intimacy += ((!reduce && stillFor > 1.2 ? 1 : 0) - intimacy) * (1 - Math.exp(-dt * 0.7));
     const turnBlend = reduce ? 1 : 1 - Math.exp(-dt * 3.2); // a weighty turn; the head leads it
     ps.phase = phase; ps.moving = moving; ps.mode = mode; ps.t = t; ps.time = t; ps.dt = dt; ps.signedSpeed = signedSpeed; ps.dx = dx;
     const lookTarget = coarse ? 0 : (pointerX - 0.5) * 1.4 * (stillFor > 0.4 ? 1 : 0.4) - (pointerY - 0.5) * 0.1;
@@ -443,7 +466,7 @@ export function startWalk(ui: WalkUI) {
       if (actor) {
         person.visible = false;
         actor.root.position.x = person.position.x; actor.root.rotation.y = person.rotation.y;
-        actor.update({ mode, moving, distance: w, dt });
+        actor.update({ mode, moving, distance: w, dt, look, gaze });
       } else pose(person, ps);
     });
     const p = people[ch];

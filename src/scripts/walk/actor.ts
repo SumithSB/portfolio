@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { makePresence } from './presence';
 
 // Him, as a properly made human: rigged avatars from the Microsoft Rocketbox library (MIT licence), moved by its
 // motion-captured walk, idle, wave and texting clips. The walk is played by distance, not time, so he only takes
@@ -14,9 +16,15 @@ export interface ActorSpec {
   bones: string;     // the rig's bone prefix: the adults use Bip01, the children Bip02
   height: number;    // metres, to the top of his head
   tint?: number;     // a colour multiplied into his clothes, so each chapter dresses him differently
+  prop?: Prop;       // what he carries in this chapter
 }
+export type Prop = 'schoolbag' | 'sling' | 'backpack' | 'umbrella';
 export type ActorMode = 'walk' | 'idle' | 'wave' | 'phone' | 'pockets';
-export interface ActorState { mode: ActorMode; moving: number; distance: number; dt: number }
+export interface ActorState {
+  mode: ActorMode; moving: number; distance: number; dt: number;
+  look: THREE.Vector3; // where his attention is, in the world
+  gaze: number;        // how much of it: 0 leaves the captured motion alone, 1 is looking straight at it
+}
 
 export interface Actor {
   root: THREE.Group;
@@ -104,6 +112,7 @@ export async function makeActor(base: string, spec: ActorSpec): Promise<Actor> {
   body.scale.setScalar(scale);
   body.rotation.y = Math.PI / 2; // the avatars face +z; the road runs along +x
   const root = new THREE.Group(); root.add(body);
+  root.add(contactShadow(spec.height));
 
   const mixer = new THREE.AnimationMixer(body);
   const clipScale = spec.height / scale / CLIP_HEIGHT; // the root's movement, in the model's own units
@@ -113,9 +122,21 @@ export async function makeActor(base: string, spec: ActorSpec): Promise<Actor> {
     return [n, a];
   })) as Record<(typeof CLIPS)[number], THREE.AnimationAction>;
   act.walk.timeScale = 0; // driven by distance below
+  act.wave.setLoop(THREE.LoopOnce, 1); act.wave.clampWhenFinished = true; // a wave is a single gesture, not a loop
   const weight = { walk: 0, idle: 1, wave: 0, phone: 0 };
+  // Learn which way his face and eyes point from the rig's rest pose; fit what he carries to him standing at ease.
+  const presence = makePresence(body, spec.bones);
+  mixer.update(0); root.updateMatrixWorld(true);
+  const carried = spec.prop ? carry(body, spec.prop, spec.height, spec.bones) : undefined;
+  if (carried?.umbrella) root.add(carried.umbrella);
   let previousMode: ActorMode = 'idle';
   const stride = STRIDE * spec.height / 1.74;
+  // His feet count the ground he covers in the direction he faces, so when he turns round to walk back he
+  // walks forwards, and when he turns on the spot he takes a few small steps instead of spinning on his heels.
+  let gait = 0, lastDistance = NaN, lastYaw = NaN, speed = 0, accel = 0, gazeWas = 0, lastFlash = -99, clock = 0;
+  const facing = new THREE.Vector3(), left = new THREE.Vector3(), grip = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  const chest = body.getObjectByName(`${spec.bones}_Spine2`) ?? body.getObjectByName(`${spec.bones} Spine2`);
+  const leftHand = body.getObjectByName(`${spec.bones}_L_Hand`) ?? body.getObjectByName(`${spec.bones} L Hand`);
 
   // a phone for the end of the story, in his right hand
   const phone = new THREE.Mesh(new THREE.BoxGeometry(0.072, 0.15, 0.009), new THREE.MeshStandardMaterial({ color: 0x15171A, roughness: 0.35, metalness: 0.4, emissive: 0x9FC3FF, emissiveIntensity: 0 }));
@@ -127,29 +148,159 @@ export async function makeActor(base: string, spec: ActorSpec): Promise<Actor> {
     root, phone,
     update(s) {
       const dt = Math.max(0, Math.min(0.1, s.dt));
+      clock += dt;
+      const yaw = root.rotation.y;
+      facing.set(Math.cos(yaw), 0, -Math.sin(yaw));
+      let moved = Number.isNaN(lastDistance) ? 0 : s.distance - lastDistance;
+      if (Math.abs(moved) > 1) moved = 0; // a cut, not a step
+      const turned = Number.isNaN(lastYaw) ? 0 : yaw - lastYaw;
+      lastDistance = s.distance; lastYaw = yaw;
+      gait += moved * Math.cos(yaw) + Math.abs(turned) * 0.3 * spec.height / 1.74;
+      if (dt > 0) {
+        const v = moved / dt;
+        accel += ((v - speed) / dt - accel) * (1 - Math.exp(-dt * 6));
+        speed = v;
+      }
+      const stepping = Math.min(1, Math.abs(turned) / Math.max(dt, 1e-3) * 0.7);
+
       const target = { walk: 0, idle: 0, wave: 0, phone: 0 };
       if (s.mode === 'phone') target.phone = 1;
       else if (s.mode === 'wave') target.wave = 1;
-      else { target.walk = THREE.MathUtils.smoothstep(s.moving, 0.015, 0.25); target.idle = 1 - target.walk; }
+      else { target.walk = Math.max(THREE.MathUtils.smoothstep(s.moving, 0.015, 0.25), stepping * 0.8); target.idle = 1 - target.walk; }
       if (s.mode !== previousMode) {
         if (s.mode === 'phone') act.phone.reset().play();
-        if (s.mode === 'wave') act.wave.reset().play();
+        if (s.mode === 'wave') { act.wave.reset().play(); presence?.flash(); lastFlash = clock; }
         previousMode = s.mode;
       }
+      // Catching your eye after a while walking, he gives you a small lift of the eyebrows.
+      if (s.gaze > 0.6 && gazeWas <= 0.6 && clock - lastFlash > 14) { presence?.flash(); lastFlash = clock; }
+      gazeWas = s.gaze;
       const k = 1 - Math.exp(-dt * 6);
       let sum = 0;
       for (const n of CLIPS) { weight[n] += (target[n] - weight[n]) * k; sum += weight[n]; }
       for (const n of CLIPS) act[n].setEffectiveWeight(weight[n] / Math.max(sum, 1e-4));
       // the walk plays by distance: one cycle per stride, backwards if he steps back
-      const cycle = ((s.distance / stride) % 1 + 1) % 1;
+      const cycle = ((gait / stride) % 1 + 1) % 1;
       act.walk.time = cycle * act.walk.getClip().duration;
       // starting the wave from its beginning each time he waves
       if (target.wave === 0 && weight.wave < 0.01) act.wave.time = 0;
       phone.visible = weight.phone > 0.5;
       (phone.material as THREE.MeshStandardMaterial).emissiveIntensity = weight.phone * 0.15;
       mixer.update(dt);
+      root.updateMatrixWorld(true);
+
+      // The umbrella is held out in front of his chest, where his left hand meets it.
+      if (carried?.umbrella && chest) {
+        left.crossVectors(up, facing);
+        chest.getWorldPosition(grip).addScaledVector(facing, 0.3).addScaledVector(up, -0.1).addScaledVector(left, 0.06);
+      }
+      presence?.update({ dt, look: s.look, gaze: s.gaze, facing, accel, speed: Math.abs(speed), grip: carried?.umbrella ? grip : undefined });
+      if (carried?.umbrella && leftHand) {
+        leftHand.getWorldPosition(grip);
+        carried.umbrella.position.copy(root.worldToLocal(grip));
+        carried.umbrella.rotation.z = 0.24 - Math.max(-0.1, Math.min(0.1, speed * 0.06)); // tipped back over his head, and a little into the wind as he walks
+      }
     },
   };
+}
+
+/** A soft dark patch where he meets the ground. The sun's shadow does this by day; at night and in the rain he
+ *  would otherwise seem to float. */
+function contactShadow(height: number) {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d')!, grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(0,0,0,0.55)'); grad.addColorStop(0.45, 'rgba(0,0,0,0.3)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, color: 0x000000, polygonOffset: true, polygonOffsetFactor: -2 }));
+  shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.04;
+  shadow.scale.set(0.62 * height / 1.74, 0.5 * height / 1.74, 1);
+  shadow.renderOrder = 1;
+  return shadow;
+}
+
+/** Make what he carries, fitted to his body as it stands in its rest pose: bags strapped to his back or across
+ *  his chest so they move with him, an umbrella to be held. */
+function carry(body: THREE.Object3D, prop: Prop, height: number, bones: string) {
+  body.updateMatrixWorld(true);
+  const k = height / 1.74;
+  // how far his body reaches front and back at a height, from the mesh itself
+  const torso = (y: number) => {
+    let front = -Infinity, back = Infinity;
+    const v = new THREE.Vector3();
+    body.traverse((o) => {
+      const m = o as THREE.SkinnedMesh;
+      if (!m.isSkinnedMesh) return;
+      const pos = m.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        m.applyBoneTransform(i, v.fromBufferAttribute(pos, i)).applyMatrix4(m.matrixWorld);
+        if (Math.abs(v.y - y) > 0.025 || Math.abs(v.z) > 0.16 * k) continue;
+        front = Math.max(front, v.x); back = Math.min(back, v.x);
+      }
+    });
+    return Number.isFinite(front) ? { front, back } : { front: 0.12 * k, back: -0.12 * k };
+  };
+  const bone = (n: string) => body.getObjectByName(`${bones}_${n}`) ?? body.getObjectByName(`${bones} ${n}`);
+  const chest = bone('Spine2'), pelvis = bone('Pelvis');
+  const fabric = (color: number, r = 0.85) => new THREE.MeshStandardMaterial({ color, roughness: r, metalness: 0 });
+  const box = (w: number, h: number, d: number, m: THREE.Material, radius = 0.02) => {
+    const mesh = new THREE.Mesh(new RoundedBoxGeometry(d, h, w, 2, radius), m);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    return mesh;
+  };
+  const strap = (from: THREE.Vector3, to: THREE.Vector3, m: THREE.Material, width = 0.035) => {
+    const s = box(width, from.distanceTo(to), 0.008, m, 0.003);
+    s.position.lerpVectors(from, to, 0.5);
+    s.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize());
+    return s;
+  };
+  // parts are placed in his own frame (the root's, which is still at the origin), then handed to a bone
+  const fasten = (to: THREE.Object3D | undefined, ...parts: THREE.Object3D[]) => parts.forEach((p) => { body.parent!.add(p); p.updateMatrixWorld(true); (to ?? body).attach(p); });
+
+  if (prop === 'umbrella') {
+    // A plain black umbrella: eight panels on ribs, a shaft, a crook handle. Its origin is where the hand holds it.
+    const umbrella = new THREE.Group();
+    const canopyMat = new THREE.MeshPhysicalMaterial({ color: 0x15181E, roughness: 0.38, clearcoat: 0.6, clearcoatRoughness: 0.25, side: THREE.DoubleSide, flatShading: true });
+    const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.72, 8, 5, Math.PI / 8, Math.PI * 2, 0, 0.92), canopyMat);
+    canopy.position.y = 0.98 - 0.72; canopy.castShadow = true; umbrella.add(canopy);
+    const metal = new THREE.MeshStandardMaterial({ color: 0x9A9EA4, roughness: 0.35, metalness: 0.9 });
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 1.04, 6), metal);
+    shaft.position.y = 0.48; umbrella.add(shaft);
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.011, 6, 12, Math.PI), fabric(0x3A2A1E, 0.5));
+    handle.position.set(0.035, -0.06, 0); handle.rotation.z = Math.PI; umbrella.add(handle);
+    const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.007, 0.05, 6), metal);
+    tip.position.y = 1.0; umbrella.add(tip);
+    umbrella.scale.setScalar(k);
+    return { umbrella };
+  }
+
+  const y = (f: number) => f * height;
+  const chestY = y(0.7), t = torso(chestY), lower = torso(y(0.6));
+  const back = Math.min(t.back, lower.back), front = Math.max(t.front, torso(y(0.76)).front);
+  if (prop === 'schoolbag' || prop === 'backpack') {
+    // a backpack: the pack itself, its front pocket, and the shoulder straps rising to his shoulders
+    const school = prop === 'schoolbag';
+    const m = fabric(school ? 0x2F4E8C : 0x23272D), trim = fabric(school ? 0xC8A23A : 0x3A3F46, 0.7);
+    const w = (school ? 0.28 : 0.3) * k, h = (school ? 0.34 : 0.42) * k, d = (school ? 0.12 : 0.13) * k;
+    const pack = box(w, h, d, m, 0.035 * k); pack.position.set(back - d / 2 + 0.01, y(0.64), 0);
+    const pocket = box(w * 0.7, h * 0.4, d * 0.4, trim, 0.02 * k); pocket.position.set(back - d - d * 0.1, y(0.6), 0);
+    const parts: THREE.Object3D[] = [pack, pocket];
+    for (const z of [-0.085 * k, 0.085 * k]) {
+      parts.push(strap(new THREE.Vector3(back + 0.01, y(0.74), z), new THREE.Vector3((front + back) / 2, y(0.815), z), trim));
+    }
+    fasten(chest, ...parts);
+  } else {
+    // a small sling bag at his hip, its strap running from his left shoulder across his chest
+    const m = fabric(0x2B2F2A), trim = fabric(0x161816, 0.7);
+    const bag = box(0.2 * k, 0.15 * k, 0.07 * k, m, 0.025 * k);
+    const hip = torso(y(0.52));
+    bag.position.set(hip.front + 0.02 * k, y(0.5), 0.09 * k);
+    const from = new THREE.Vector3((front + back) / 2, y(0.815), -0.09 * k), to = new THREE.Vector3(hip.front + 0.02 * k, y(0.56), 0.1 * k);
+    const mid = new THREE.Vector3(front + 0.01, y(0.7), 0);
+    fasten(pelvis, bag);
+    fasten(chest, strap(from, mid, trim, 0.03 * k), strap(mid, to, trim, 0.03 * k));
+  }
+  return { umbrella: undefined };
 }
 
 /** The light that edges him against the scene, like a film's back light; the walk sets it to each place's sky. */

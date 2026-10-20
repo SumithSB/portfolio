@@ -103,7 +103,7 @@ if (!reduce) {
   $$('.track').forEach((track) => {
     const stops = $<HTMLElement>('.stops', track);
     if (!stops) return;
-    const rows = $$('li', stops);
+    const rows = $$(':scope > li', stops);
     scroll((progress: number) => {
       stops.style.setProperty('--spine-progress', progress.toFixed(4));
       rows.forEach((li, i) => li.classList.toggle('is-reached', progress >= (i + 0.35) / rows.length));
