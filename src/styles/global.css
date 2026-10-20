@@ -334,9 +334,18 @@ h1 em, .head h2 em { font-weight: 400; color: #516850; }
 .chapter-detail { font-size: 13px; line-height: 1.75; }
 .chapter-detail summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; cursor: pointer; font-size: 11px; color: var(--amber); list-style: none; padding: 10px 0 0; border-top: 1px solid #FFFFFF1A; }
 .chapter-detail summary::-webkit-details-marker { display: none; }
-.chapter-detail summary span { font-size: 18px; transition: transform .2s; }
-.chapter-detail[open] summary span { transform: rotate(45deg); }
+.chapter-detail summary .read-icon { font-size: 18px; transition: transform .2s; }
+.chapter-detail[open] summary .read-icon { transform: rotate(45deg); }
+.chapter-detail .read-less, .chapter-detail[open] .read-more { display: none; }
+.chapter-detail[open] .read-less { display: inline; }
 .chapter-detail p { padding-top: 12px; }
+/* The rest of the chapter reads as one piece with its opening paragraph. */
+.walk.is-3d .chapter .chapter-detail p:not(.meta) { font-size: 14px; line-height: 1.8; color: #D4CFC6; padding-top: 14px; }
+/* Reading a chapter: the card becomes a reading panel and the walk holds still behind it. */
+.walk.is-3d.reading .chapter.is-on { top: 96px; bottom: 96px; z-index: 5; }
+.walk.is-3d.reading .chapter.is-on article { max-width: 460px; max-height: 100%; overscroll-behavior: contain; }
+.walk.is-3d.reading .chapter article::after { display: none; }
+.walk.is-3d.reading .chapters::before { content: ''; position: absolute; inset: 0; pointer-events: auto; background: linear-gradient(90deg, rgba(10, 14, 24, 0.55), rgba(10, 14, 24, 0.15) 70%); }
 .walk:not(.is-3d) .chapter-detail summary { color: inherit; }
 .hud { padding-bottom: max(24px, env(safe-area-inset-bottom, 0px)); }
 .map { padding: 5px; border-radius: 16px; }
@@ -405,7 +414,8 @@ h1 em, .head h2 em { font-weight: 400; color: #516850; }
   .walk.is-3d .chapter p.scene-note { display: none; }
   .walk.is-3d .chapter h2 { font-size: 27px; }
   .walk.is-3d .chapter p.chapter-summary { font-size: 13px; line-height: 1.7; }
-  .walk.is-3d .chapter-detail p { font-size: 12px; }
+  .walk.is-3d .chapter .chapter-detail p:not(.meta) { font-size: 13px; line-height: 1.7; }
+  .walk.is-3d.reading .chapter.is-on { top: 76px; bottom: 87px; max-height: none; }
   .chapter-detail summary { font-size: 10px; padding-top: 7px; }
   .hud { padding-bottom: max(17px, env(safe-area-inset-bottom, 0px)); gap: 10px; }
   .map { flex: 1; justify-content: space-between; border-radius: 14px; padding: 4px; }

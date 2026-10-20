@@ -42,7 +42,7 @@ export const chapters: Chapter[] = [
     p: [
       'The hackathon app became Drogher Technologies, a quick-commerce platform for local shops. I co-founded it and led the engineering.',
       'I designed the mobile and web platform, real-time order fulfilment and inventory for last-mile delivery. We were selected for incubation at Great Lakes in Chennai and signed up our first shops one counter at a time.',
-      'Then heavily funded quick-commerce companies arrived with subsidised delivery, and kirana stores ran on trust and credit that software couldn’t replace. We closed the company. The lesson stayed: a product is only as strong as the business around it.',
+      'Then heavily funded quick-commerce companies arrived with subsidised delivery, and kirana stores ran on trust and credit that software couldn’t replace. I made the call to pivot: we stopped selling to shoppers and built for other businesses instead, in healthcare, food delivery and co-working. The lesson stayed: a product is only as strong as the business around it.',
     ],
   },
   {
@@ -52,7 +52,7 @@ export const chapters: Chapter[] = [
     sceneNote: 'Purple Line metro · Late deploy',
     time: 'Golden hour',
     p: [
-      'In late 2021 I joined a small Bengaluru startup as an intern, and was on the full-time team before I graduated.',
+      'In late 2021, in my final year of university, I joined a small Bengaluru startup part-time, and was on the full-time team soon after I graduated.',
       'Over three years the work grew from Flutter apps and APIs to data sync between clouds in different regions, payment integrations, and then the backend and AI pipelines of an agentic AI platform: FastAPI services, vector databases and LLM agents.',
       'When the flagship product was wound down, I stayed and kept its systems running. That’s where I learned that shipping is the start of the job, not the end of it.',
     ],

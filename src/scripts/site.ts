@@ -17,12 +17,15 @@ const walk = $('.walk');
 const canvas = $<HTMLCanvasElement>('#walk-canvas');
 const webgl = (() => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; } })();
 
+let closeReading = () => {};
+
 const restoreStory = () => {
   if (!walk) return;
   const reading = Number(walk.dataset.chapter ?? 0);
   walk.classList.remove('is-3d', 'at-start', 'ready', 'leaving');
   walk.querySelectorAll<HTMLElement>('.chapter').forEach((el) => { el.removeAttribute('inert'); el.removeAttribute('aria-hidden'); });
   const hud = $('.hud', walk); if (hud) hud.hidden = true;
+  walk.classList.remove('reading'); lenis?.start();
   walk.querySelectorAll('details').forEach((d) => { d.open = true; });
   if (scrollY > 100) walk.querySelector<HTMLElement>(`#ch-${reading}`)?.scrollIntoView();
 };
@@ -42,6 +45,25 @@ if (walk && canvas && webgl && !reduce) {
       onFailure: restoreStory,
     }))
     .catch(restoreStory);
+
+  // Reading a chapter holds the walk still, so the scene can't move on to the next chapter under the words.
+  const details = $$<HTMLDetailsElement>('.chapter-detail', walk);
+  const reading = () => walk.classList.contains('is-3d') && walk.classList.contains('reading');
+  details.forEach((d) => d.addEventListener('toggle', () => {
+    if (!walk.classList.contains('is-3d')) return;
+    if (d.open) details.forEach((other) => { if (other !== d) other.open = false; });
+    const on = details.some((x) => x.open);
+    walk.classList.toggle('reading', on);
+    if (on) lenis?.stop(); else lenis?.start();
+  }));
+  closeReading = () => { if (reading()) details.forEach((d) => { d.open = false; }); };
+  addEventListener('keydown', (e) => { if (e.key === 'Escape') closeReading(); });
+  $('.chapters', walk)?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeReading(); });
+  $$('.map button', walk).forEach((b) => b.addEventListener('click', closeReading, { capture: true }));
+  // Only the panel scrolls while reading; nothing else moves the page.
+  const hold = (e: Event) => { if (reading() && !(e.target as Element).closest?.('.chapter.is-on article')) e.preventDefault(); };
+  walk.addEventListener('wheel', hold, { passive: false });
+  walk.addEventListener('touchmove', hold, { passive: false });
 }
 
 // One owner for anchor navigation; the sticky story has its own real scroll destination.
@@ -50,6 +72,7 @@ $$<HTMLAnchorElement>('a[href^="#"]').forEach((link) => link.addEventListener('c
   const target = document.getElementById(id);
   if (!target) return;
   event.preventDefault();
+  closeReading();
   const story = id === 'story' && walk?.classList.contains('is-3d');
   const y = story ? walk!.offsetTop + (0.35 / 6) * (walk!.offsetHeight - innerHeight) : target.getBoundingClientRect().top + scrollY - (id === 'top' ? 0 : 84);
   const focus = () => {

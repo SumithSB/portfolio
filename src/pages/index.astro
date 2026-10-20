@@ -132,7 +132,7 @@ const study = [
                 <p class="scene-note">{c.sceneNote}</p>
                 <h2 id={`ch-${i}`} tabindex="-1">{c.title}</h2>
                 <p class="chapter-summary">{c.p[0]}</p>
-                <details class="chapter-detail"><summary>Read this chapter <span aria-hidden="true">+</span></summary>{c.p.slice(1).map((t) => <p>{t}</p>)}</details>
+                <details class="chapter-detail"><summary><span class="read-more">Read this chapter</span><span class="read-less">Back to the walk</span><span class="read-icon" aria-hidden="true">+</span></summary>{c.p.slice(1).map((t) => <p>{t}</p>)}</details>
                 {i === 5 && <a href="#journey" class="chapter-next">Continue to the timeline</a>}
               </article>
             </li>

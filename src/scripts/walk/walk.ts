@@ -408,7 +408,10 @@ export function startWalk(ui: WalkUI) {
       const vout = i === CHAPTERS - 1 ? 1 : smooth(clamp((0.95 - u) / 0.1));
       const vis = atStart ? 0 : Math.min(vin, vout);
       const on = vis > 0.04;
-      if (c.classList.contains('is-on') !== on) c.classList.toggle('is-on', on);
+      if (c.classList.contains('is-on') !== on) {
+        c.classList.toggle('is-on', on);
+        if (!on) c.querySelector('details')?.removeAttribute('open'); // a card that leaves the screen closes
+      }
       c.toggleAttribute('inert', !on);
       if (c.getAttribute('aria-hidden') !== String(!on)) c.setAttribute('aria-hidden', String(!on));
       setStyle(c, '--card-vis', vis.toFixed(3));
