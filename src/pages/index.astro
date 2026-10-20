@@ -1,0 +1,208 @@
+---
+import fs from 'node:fs';
+import Base from '../layouts/Base.astro';
+import { chapters } from '../data/story';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const m = (file: string) => `${base}/media/${file}`;
+const year = new Date().getFullYear();
+
+// CV links appear only once public/Sumith_Bhandari_CV.pdf exists.
+const cvFile = 'Sumith_Bhandari_CV.pdf';
+const hasCv = fs.existsSync(new URL(`../../public/${cvFile}`, import.meta.url));
+const cvHref = `${base}/${cvFile}`;
+
+const email = 'sumithsbhandari@gmail.com';
+const links = {
+  github: 'https://github.com/SumithSB',
+  linkedin: 'https://linkedin.com/in/sumith-sadanand-bhandari',
+  x: 'https://x.com/SumithSBhandari',
+};
+
+// Named, minimal: where, what, when. Work and study kept apart, newest first.
+const work = [
+  { when: 'Jul 2026 to now', place: 'London', org: 'Goodspeed Studio', roles: ['AI Engineer'], note: 'Building AI agents.' },
+  { when: 'Jun 2025 to Sep 2025', place: 'Remote, UK', org: 'Visiminds Technologies', roles: ['Software Engineer'], note: 'A short contract during my Master\'s, building a security testing platform.' },
+  { when: 'Nov 2021 to Dec 2024', place: 'Bengaluru', org: 'TechMachinery Labs', roles: ['Software Engineer', 'Software Development Engineer', 'SDE 1, part-time'], note: 'Joined as an intern, stayed for three years. Grew from building APIs to leading backend work on an AI platform.' },
+  { when: 'Nov 2020 to May 2022', place: 'Bengaluru', org: 'Drogher Technologies', roles: ['Co-Founder and Engineering Lead'], note: 'The company that came out of our lockdown app. Led the engineering until we closed it.' },
+];
+const study = [
+  { when: 'Jan 2025 to Jul 2026', place: 'Leicester', org: 'University of Leicester', roles: ['MSc Advanced Computer Science'], note: 'A Master\'s, alongside part-time work and evenings building with my old team.' },
+  { when: 'Aug 2018 to Jul 2022', place: 'Bengaluru', org: 'Ramaiah Institute of Technology', roles: ['BE Information Science'], note: 'Where I started out feeling behind, and started building anyway.' },
+];
+---
+<Base
+  title="Sumith Bhandari | A walk from a small town to London"
+  description="Sumith Bhandari builds software in London. From Karnataka to London: the experiences behind his work in AI and backend engineering."
+>
+  <a class="skip" href="#story">Skip to the story</a>
+
+  <header class="top gut">
+    <a class="name" href="#top"><span class="name-mark" aria-hidden="true">s.</span>Sumith Bhandari</a>
+    <nav aria-label="Main">
+      <ul>
+        <li><a href="#story">Story</a></li>
+        <li><a href="#journey">Journey</a></li>
+        <li><a href="#projects">Projects</a></li>
+        <li><a href="#contact">Contact</a></li>
+        {hasCv && <li><a href={cvHref} download>CV</a></li>}
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="walk" id="top" aria-label="My story, in six chapters">
+      <div class="stage">
+        <canvas id="walk-canvas" aria-hidden="true"></canvas>
+        <div class="dawn" aria-hidden="true"></div>
+        <div class="scene-scrim" aria-hidden="true"></div>
+
+        <div class="title gut">
+          <p class="kicker"><span class="live-dot" aria-hidden="true"></span> From Karnataka to London</p>
+          <h1>From a small town<br />to systems<br /><em>people rely on.</em></h1>
+          <p class="lede">I’m Sumith. I build AI agents and backend systems.<br class="desktop-break" /> This is the story behind the work.</p>
+          <div class="hero-actions"><a class="begin" href="#story">Walk with me <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 19 19 5M5 5h14v14" /></svg></a><a class="work-link" href="#projects">Explore my work <span aria-hidden="true">↓</span></a></div>
+          <p class="hint"><span aria-hidden="true">↓</span> Scroll to discover <span class="hint-rule" aria-hidden="true"></span> Six chapters, one journey</p>
+        </div>
+
+        <p class="scene-caption" aria-hidden="true"><span class="scene-year">1999</span><span class="scene-time">Dawn</span><span class="scene-location">Karnataka, India</span></p>
+        <a class="skip-walk" href="#projects">Skip to the work <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 19 19 5M5 5h14v14" /></svg></a>
+
+        <ol class="chapters gut" id="story">
+          {chapters.map((c, i) => (
+            <li class="chapter" data-ch={i} style={`--i:${i}`}>
+              <article aria-labelledby={`ch-${i}`} data-lenis-prevent>
+                <p class="meta"><span>{String(i + 1).padStart(2, '0')}</span>{c.yr} · {c.place}</p>
+                <p class="scene-note">{c.sceneNote}</p>
+                <h2 id={`ch-${i}`} tabindex="-1">{c.title}</h2>
+                <p class="chapter-summary">{c.p[0]}</p>
+                <details class="chapter-detail"><summary>Read this chapter <span aria-hidden="true">+</span></summary>{c.p.slice(1).map((t) => <p>{t}</p>)}</details>
+                {i === 5 && <a href="#journey" class="chapter-next">Continue to the timeline</a>}
+              </article>
+            </li>
+          ))}
+        </ol>
+
+        <div class="hud gut" hidden>
+          <div class="bar" aria-hidden="true"><i id="walk-progress"></i></div>
+          <nav class="map" aria-label="Chapters">
+            {chapters.map((c, i) => (
+              <button type="button" data-ch={i} aria-label={`${String(i + 1).padStart(2, '0')} ${c.place}, chapter ${i + 1}`}><b>{String(i + 1).padStart(2, '0')}</b>{' '}<span>{c.place}</span></button>
+            ))}
+          </nav>
+          <button type="button" class="sound" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8h3l4-3v10l-4-3H3z" /><path class="w" d="M13 7.5a3.5 3.5 0 0 1 0 5M15 5a7 7 0 0 1 0 10" /></svg><span>Sound off</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="journey gut" id="journey" aria-labelledby="journey-title">
+      <div class="head">
+        <p class="kicker">01 / The path so far</p>
+        <h2 id="journey-title">Journey</h2>
+        <p>The places that shaped how I think, build, and keep going.</p>
+      </div>
+      <div class="tracks">
+        <div class="track">
+          <h3 class="track-title">Work</h3>
+          <ol class="stops">
+            {work.map((j) => (
+              <li data-reveal>
+                <p class="when">{j.when}<span>{j.place}</span></p>
+                <div>
+                  <h4>{j.org}</h4>
+                  <p class="roles">{j.roles.join(' · ')}</p>
+                  <p>{j.note}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div class="track">
+          <h3 class="track-title">Study</h3>
+          <ol class="stops">
+            {study.map((j) => (
+              <li data-reveal>
+                <p class="when">{j.when}<span>{j.place}</span></p>
+                <div>
+                  <h4>{j.org}</h4>
+                  <p class="roles">{j.roles.join(' · ')}</p>
+                  <p>{j.note}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="projects gut" id="projects" aria-labelledby="projects-title">
+      <div class="head">
+        <p class="kicker">02 / Made with intent</p>
+        <h2 id="projects-title">Small frictions.<br /><em>Useful things.</em></h2>
+        <p>Software I wanted to exist. So I built it.</p>
+      </div>
+
+      <article class="project feature" aria-labelledby="p-anchor" data-reveal>
+        <div class="media">
+          <video class="autoplay" muted loop playsinline controls preload="none" width="1280" height="720" poster={m('tour.jpg')}
+            aria-label="Claude Anchor menu showing several Claude accounts, folder rules and usage limits.">
+            <source src={m('tour-silent.webm')} type="video/webm" />
+            <source src={m('tour-silent.mp4')} type="video/mp4" />
+          </video>
+        </div>
+        <div class="txt">
+          <p class="project-index">01 · Developer tools</p>
+          <h3 id="p-anchor">Claude Anchor</h3>
+          <p>I use different Claude accounts for different kinds of work, and kept ending up in the wrong one. So I built a small desktop app: pin a folder to an account once, and Claude Code uses the right one in your terminal and editor from then on.</p>
+          <p class="links">
+            <a href="https://github.com/SumithSB/claude-anchor">Code on GitHub</a>
+            <a href="https://x.com/SumithSBhandari/status/2110735490886365441">Launch post</a>
+            <a href="https://github.com/SumithSB/claude-anchor/blob/main/docs/tour.mp4">Tour with sound</a>
+          </p>
+          <ul class="project-tags" aria-label="Features"><li>Desktop app</li><li>Claude Code</li><li>Open source</li></ul>
+        </div>
+      </article>
+
+      <div class="grid">
+        <article class="project" aria-labelledby="p-brainvault" data-reveal>
+          <div class="memory-visual" aria-hidden="true"><span>yesterday</span><i></i><b>context, kept.</b><i></i><span>next session</span><div class="memory-orbit"></div></div>
+          <img class="logo" src={m('brainvault-logo.svg')} width="56" height="56" alt="" loading="lazy" />
+          <h3 id="p-brainvault">Brainvault</h3>
+          <p>Coding agents forget everything between sessions, and I was tired of explaining the same things again. Brainvault gives them a memory that lives on your own machine.</p>
+          <p class="links">
+            <a href="https://github.com/SumithSB/brainvault">Code on GitHub</a>
+            <a href="https://pypi.org/project/brainvault/">On PyPI</a>
+          </p>
+        </article>
+        <article class="project" aria-labelledby="p-fashion" data-reveal>
+          <div class="fashion-visual" aria-hidden="true"><span class="swatch"></span><span class="swatch"></span><span class="swatch"></span><p>A little more <em>you.</em></p></div>
+          <svg class="logo" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="27" /><path d="M20 18l8 6 8-6 6 6-5 4v14H19V28l-5-4z" /></svg>
+          <h3 id="p-fashion">Fashion AI</h3>
+          <p>My Master's project. A styling app that starts from you: your skin tone, your build, where you're going. It suggests what to wear and can talk you through why.</p>
+        </article>
+      </div>
+      <a class="all-work" href={links.github}>There’s always another idea in progress.<span>Follow the builds on GitHub</span></a>
+    </section>
+
+    <section class="contact gut" id="contact" aria-labelledby="contact-title">
+      <p class="kicker">Thanks for walking with me</p>
+      <h2 id="contact-title">Say hello.</h2>
+      <p>If something here made you curious, or you have a problem worth building for, I'd like to hear about it.</p>
+      <p><a class="mail" href={`mailto:${email}`}>{email}</a></p>
+      <ul class="social">
+        <li><a href={links.github}>GitHub</a></li>
+        <li><a href={links.linkedin}>LinkedIn</a></li>
+        <li><a href={links.x}>X</a></li>
+        {hasCv && <li><a href={cvHref} download>CV</a></li>}
+      </ul>
+    </section>
+  </main>
+
+  <footer class="foot gut">
+    <p>© {year} Sumith Bhandari. An interactive account of the places and work that shaped me.</p>
+  </footer>
+</Base>
+
+<script>
+  import './../scripts/site';
+</script>
