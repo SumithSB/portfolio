@@ -159,15 +159,29 @@ export function buildWorld(scene: THREE.Scene): World {
     if (opts.tank) { const t = cyl(0.55, 0.55, 0.9, mat(0x1B1D1F, { r: 0.6 })); t.position.set(w * 0.25, h + 0.7, 0); g.add(t); const lid = cyl(0.3, 0.3, 0.1, mat(0x1B1D1F)); lid.position.set(w * 0.25, h + 1.2, 0); g.add(lid); }
     g.position.set(x, 0, z); return add(g);
   };
+  // An auto-rickshaw: a green tub with a yellow band, a raked yellow nose, and the black hood arched over it.
+  // No two parts share a surface, so nothing flickers where they meet.
+  const hoodMat = new THREE.MeshStandardMaterial({ color: 0x1C201D, roughness: 0.75, side: THREE.DoubleSide });
   const auto = (x: number, z: number, ry = 0) => {
     const g = new THREE.Group();
-    const lower = box(2.2, 0.6, 1.3, mat(0x2F7A3A)); lower.position.y = 0.55; g.add(lower);
-    const nose = box(0.5, 0.7, 1.3, mat(0xE9C33A)); nose.position.set(1.05, 0.65, 0); g.add(nose);
-    const canopy = box(1.8, 0.12, 1.36, mat(0x1E2A20)); canopy.position.set(-0.1, 1.7, 0); g.add(canopy);
-    for (const zz of [0.62, -0.62]) { const post = box(0.05, 1.0, 0.05, mat(0x1E2A20)); post.position.set(0.7, 1.2, zz); g.add(post); }
-    const back = box(0.1, 1.0, 1.36, mat(0x1E2A20)); back.position.set(-1.0, 1.2, 0); g.add(back);
-    const ws = box(0.06, 0.6, 1.1, mat(0xA9C6D3, { r: 0.1 })); ws.position.set(0.8, 1.3, 0); g.add(ws);
-    for (const [wx, wz] of [[0.95, 0], [-0.8, 0.62], [-0.8, -0.62]]) { const w = cyl(0.28, 0.28, 0.2, mat(0x151515)); w.rotation.x = Math.PI / 2; w.position.set(wx, 0.28, wz); g.add(w); }
+    const green = mat(0x2F7A3A, { r: 0.55 }), yellow = mat(0xE9C33A, { r: 0.5 }), black = mat(0x1C201D, { r: 0.7 });
+    g.add(at(box(1.9, 0.5, 1.24, green), -0.15, 0.55, 0));
+    g.add(at(box(1.94, 0.08, 1.28, yellow), -0.15, 0.82, 0));
+    const nose = at(box(0.55, 0.9, 0.92, yellow), 0.98, 0.72, 0); nose.rotation.z = 0.18; g.add(nose);
+    const lamp = at(cyl(0.07, 0.07, 0.05, mat(0xFFF4D6, { e: 0xFFE7B0, ei: 0.6 }), 12), 1.2, 1.02, 0); lamp.rotation.z = Math.PI / 2; g.add(lamp);
+    const bar = at(cyl(0.015, 0.015, 0.62, black, 6), 0.78, 1.16, 0); bar.rotation.x = Math.PI / 2; g.add(bar);
+    const screen = at(box(0.04, 0.5, 0.9, mat(0xA9C6D3, { r: 0.1 })), 0.74, 1.36, 0); screen.rotation.z = 0.12; g.add(screen);
+    g.add(at(box(0.48, 0.14, 1.0, mat(0x2A2420, { r: 0.8 })), -0.55, 0.93, 0));
+    g.add(at(box(0.1, 0.3, 1.0, mat(0x2A2420, { r: 0.8 })), -0.82, 1.08, 0));
+    for (const px of [0.62, -1.0]) for (const zz of [0.6, -0.6]) g.add(at(box(0.04, 0.36, 0.04, black), px, 1.04, zz));
+    g.add(at(box(0.04, 0.32, 1.16, black), -1.05, 1.03, 0));
+    const hood = at(new THREE.Mesh(new THREE.CylinderGeometry(0.64, 0.64, 1.75, 18, 1, true, 0, Math.PI), hoodMat), -0.2, 1.18, 0);
+    hood.rotation.z = Math.PI / 2; hood.castShadow = true; g.add(hood);
+    const rear = at(new THREE.Mesh(new THREE.CircleGeometry(0.64, 18, 0, Math.PI), hoodMat), -1.07, 1.18, 0); rear.rotation.y = Math.PI / 2; g.add(rear);
+    for (const [wx, wz] of [[1.02, 0], [-0.75, 0.6], [-0.75, -0.6]]) {
+      const w = at(cyl(0.25, 0.25, 0.16, mat(0x151515, { r: 0.9 }), 18), wx, 0.25, wz); w.rotation.x = Math.PI / 2; g.add(w);
+      const hub = at(cyl(0.09, 0.09, 0.17, mat(0xB9BEC2, { r: 0.3, m: 0.8 }), 10), wx, 0.25, wz); hub.rotation.x = Math.PI / 2; g.add(hub);
+    }
     g.position.set(x, 0, z); g.rotation.y = ry; return add(g);
   };
   const doubleDecker = (x: number, z: number) => {
