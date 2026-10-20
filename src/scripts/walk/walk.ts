@@ -26,6 +26,18 @@ const smooth = (t: number) => t * t * (3 - 2 * t);
 const setStyle = (element: HTMLElement, property: string, value: string) => {
   if (element.style.getPropertyValue(property) !== value) element.style.setProperty(property, value);
 };
+// How each chapter is filmed: 0 is a 2000s home video, 1 is today. The look sharpens as he grows up.
+const ERA = [0, 0.55, 0.65, 0.78, 0.9, 1];
+// The year rolls on as he walks: his childhood from 1999 to university in 2018 through the first chapter, then
+// each later chapter's year, turning over during the dissolves. [chapters of scroll, year]
+const YEARS: Array<[number, number]> = [[0, 1999], [0.86, 2018], [1.14, 2020], [2.86, 2020], [3.14, 2021], [3.86, 2021], [4.14, 2025], [4.86, 2025], [5.14, 2026]];
+const yearAt = (g: number) => {
+  for (let i = 1; i < YEARS.length; i++) {
+    const [g0, y0] = YEARS[i - 1], [g1, y1] = YEARS[i];
+    if (g <= g1) return Math.round(lerp(y0, y1, clamp((g - g0) / (g1 - g0))));
+  }
+  return YEARS[YEARS.length - 1][1];
+};
 const TIME_LABELS = ['Dawn', 'Morning', 'Noon', 'Golden hour', 'After the rain', 'Night'];
 const PLACE_LABELS = ['Karnataka, India', 'Lockdown, 2020', 'The first startup', 'Bengaluru, India', 'Leicester, UK', 'London, UK'];
 
@@ -298,6 +310,7 @@ export function startWalk(ui: WalkUI) {
     backdrops.update(c, cam.position.y);
   };
 
+  const yearEl = ui.root.querySelector<HTMLElement>('.scene-year');
   const frame = (now: number) => {
     if (stopped) return;
     requestAnimationFrame(frame);
@@ -432,7 +445,12 @@ export function startWalk(ui: WalkUI) {
     } else {
       solo(ch); lit = light(ch, x, t); frameShot(ch, t, crossing ? lerp(LOOKS[from].H, LOOKS[to].H, mix) : LOOKS[ch].H);
     }
-    post.update(t, lit.night, lit.warmth, fade);
+    const era = lerp(ERA[from], ERA[to], crossing ? mix : 1);
+    post.update(t, lit.night, lit.warmth, fade, clamp(1 - era / 0.45), smooth(clamp((era - 0.6) / 0.4)));
+    const year = String(yearAt(g));
+    if (yearEl && yearEl.textContent !== year) yearEl.textContent = year;
+    const eraName = era < 0.3 ? 'tape' : 'digital';
+    if (ui.root.dataset.era !== eraName) ui.root.dataset.era = eraName;
     amb!.setMix(lit.f);
     post.render(dt);
     if (people[ch]) ui.root.classList.add('ready');
