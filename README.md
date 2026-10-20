@@ -1,14 +1,14 @@
 # Sumith Bhandari, portfolio
 
-Source for https://sumithsb.github.io/portfolio/, a one-page static site built with [Astro](https://astro.build).
+Source for https://sumithsb.com/, a one-page static site built with [Astro](https://astro.build).
 
 ## Run it
 
 ```sh
 npm ci
-npm run dev       # http://localhost:4321/portfolio/
+npm run dev       # http://localhost:4321/
 npm run build     # static output in dist/
-npm run preview   # serve dist/ at /portfolio/
+npm run preview   # serve dist/ locally
 npm run typecheck # strict TypeScript checks
 npm test          # root movement and actual character-rig regression tests
 ```
@@ -43,4 +43,4 @@ The CV links appear automatically once `public/Sumith_Bhandari_CV.pdf` exists.
 
 ## Deploy
 
-Every push to `main` runs `.github/workflows/deploy-pages.yml`: it installs, builds and publishes `dist/` to the `pages` branch, which GitHub Pages serves at `/portfolio/`.
+Every push to `main` runs `.github/workflows/deploy-pages.yml`: it installs, builds and publishes `dist/` to the `pages` branch, which GitHub Pages serves at sumithsb.com.
