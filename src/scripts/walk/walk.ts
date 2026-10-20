@@ -8,7 +8,7 @@ import { dressWorld, weather, createBackdrops } from './dressing';
 import type { Sculpted } from './figure';
 import { LOOKS } from './looks';
 import { advanceRoot } from './locomotion';
-import { makeActor, type Actor, type ActorSpec } from './actor';
+import { makeActor, rimLight, type Actor, type ActorSpec } from './actor';
 
 // Light across one day: dawn, morning, noon, golden hour, dusk in the rain, night.
 interface Key { top: number; bottom: number; fog: number; sun: number; sunI: number; sunY: number; hemi: number; night: number; rain: number; exp: number }
@@ -91,7 +91,7 @@ export function startWalk(ui: WalkUI) {
   };
 
   const r = new THREE.WebGLRenderer({ canvas: ui.canvas, antialias: !coarse, powerPreference: 'high-performance' });
-  r.setPixelRatio(Math.min(devicePixelRatio, coarse ? 1.25 : 1.5));
+  r.setPixelRatio(Math.min(devicePixelRatio, coarse ? 1.25 : 2));
   ui.canvas.addEventListener('webglcontextlost', (event) => { event.preventDefault(); fail(); }, { once: true });
   r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
   r.toneMapping = THREE.ACESFilmicToneMapping; r.outputColorSpace = THREE.SRGBColorSpace;
@@ -156,7 +156,7 @@ export function startWalk(ui: WalkUI) {
   const assetBase = (document.querySelector('link[rel=icon]') as HTMLLinkElement | null)?.href.replace(/favicon\.svg.*$/, '') ?? './';
   const backdrops = createBackdrops(scene, assetBase, RANGES.map(([rs0, rl0], i) => i * SPAN + rs0 + rl0 / 2));
 
-  let ratio = Math.min(devicePixelRatio, coarse ? 1.25 : 1.5);
+  let ratio = Math.min(devicePixelRatio, coarse ? 1.25 : 2); // full sharpness on desktop screens; the quality check steps it down if needed
   // ?quality=0|1|2 pins the quality level, for checking how the walk looks on any device.
   const pinned = new URLSearchParams(location.search).get('quality');
   const post = createPost(r, scene, cam, (pinned !== null ? clamp(Number(pinned) || 0, 0, 2) : coarse ? 0 : 1) as Quality);
@@ -314,6 +314,9 @@ export function startWalk(ui: WalkUI) {
     (world.rain.material as THREE.LineBasicMaterial).opacity = rain * 0.75;
     world.rain.position.x = x;
     hemi.groundColor.setRGB(lerp(0.35, 0.08, night), lerp(0.27, 0.09, night), lerp(0.21, 0.16, night));
+    // his back light takes the sky's colour, and does more at night when he would otherwise sink into the dark
+    rimLight.color.value.copy(skyU.top.value).lerp(sun.color, 0.4);
+    rimLight.strength.value = 0.22 + night * 0.5;
     const sunY = lerp(A.sunY, B.sunY, kt);
     skyU.sunDir.value.set(30, sunY, -18).normalize();
     sun.position.set(x + 30, sunY, -18); sun.target.position.set(x + 4, 0, 0);
@@ -330,10 +333,12 @@ export function startWalk(ui: WalkUI) {
     // a hand-held drift, far too small to notice on its own but it stops the frame feeling locked off
     const hx = reduce ? 0 : (Math.sin(t * 0.61) + Math.sin(t * 1.07 + 1.3)) * 0.012;
     const hy = reduce ? 0 : (Math.sin(t * 0.83 + 2.1) + Math.sin(t * 1.41)) * 0.008;
-    const lead = narrow ? 0.75 : 2.1 - 1.3 * u;
-    const dist = H * (narrow ? 6.2 : 6.4) * (1.06 - 0.1 * u);
+    // close enough that he is a person in the frame, not a figure; the place still reads around him
+    const near = 0.84;
+    const lead = (narrow ? 0.75 : 2.1 - 1.3 * u) * near;
+    const dist = H * (narrow ? 6.2 : 6.4) * (1.06 - 0.1 * u) * near;
     cam.position.set(xc + lead + px + hx, H * 0.95 + py + hy, dist);
-    cam.lookAt(xc - (narrow ? 0 : 1.35), H * 0.78, 0);
+    cam.lookAt(xc - (narrow ? 0 : 1.35 * near), H * 0.8, 0);
     cam.rotation.z += reduce ? 0 : Math.sin(t * 0.37) * 0.0025;
     sky.position.copy(cam.position);
     backdrops.update(c, cam.position.y);

@@ -18,11 +18,12 @@ const Grade = {
     fade: { value: 0 },
     vhs: { value: 0 },  // 1 = a 2000s home video: soft, colour bleeding sideways, faded and warm, faint scan lines
     cine: { value: 0 }, // 1 = today: a clean cinematic grade
+    sharpen: { value: 0 },
     res: { value: new THREE.Vector2(1, 1) },
   },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float time, vignette, grain, warmth, aberration, fade, vhs, cine; uniform vec2 res; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform float time, vignette, grain, warmth, aberration, fade, vhs, cine, sharpen; uniform vec2 res; varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     const mat3 toYIQ = mat3(0.299, 0.596, 0.211, 0.587, -0.274, -0.523, 0.114, -0.322, 0.312);
     const mat3 toRGB = mat3(1.0, 1.0, 1.0, 0.956, -0.272, -1.106, 0.621, -0.647, 1.703);
@@ -31,6 +32,16 @@ const Grade = {
       vec2 off = c * aberration * (1.0 + d * 4.0);
       vec4 col = texture2D(tDiffuse, vUv);
       col.r = texture2D(tDiffuse, vUv + off).r; col.b = texture2D(tDiffuse, vUv - off).b;
+      {
+        // contrast-adaptive sharpening: crisp detail in today's chapters, held back on edges already strong
+        vec2 p = 1.0 / res;
+        vec3 n = texture2D(tDiffuse, vUv + vec2(0.0, p.y)).rgb, s = texture2D(tDiffuse, vUv - vec2(0.0, p.y)).rgb;
+        vec3 e = texture2D(tDiffuse, vUv + vec2(p.x, 0.0)).rgb, w = texture2D(tDiffuse, vUv - vec2(p.x, 0.0)).rgb;
+        vec3 mn = min(col.rgb, min(min(n, s), min(e, w))), mx = max(col.rgb, max(max(n, s), max(e, w)));
+        vec3 amp = sqrt(clamp(min(mn, 2.0 - mx) / max(mx, 1e-3), 0.0, 1.0));
+        vec3 wgt = -amp * mix(0.125, 0.2, sharpen);
+        col.rgb = max(vec3(0.0), (col.rgb + (n + s + e + w) * wgt) / (1.0 + 4.0 * wgt)) * step(0.001, sharpen) + col.rgb * (1.0 - step(0.001, sharpen));
+      }
       if (vhs > 0.001) {
         // home video: a gentle sideways wobble, soft detail, and colour that smears a few pixels to the right
         vec2 px = vec2(1.0 / res.x, 0.0) * (res.x / 960.0);
@@ -131,7 +142,7 @@ export function createPost(r: THREE.WebGLRenderer, scene: THREE.Scene, cam: THRE
       if (grade) {
         grade.uniforms.time.value = t; grade.uniforms.warmth.value = warmth * 0.35;
         grade.uniforms.vignette.value = 0.12 + night * 0.08; grade.uniforms.fade.value = fade;
-        grade.uniforms.vhs.value = vhs; grade.uniforms.cine.value = cine;
+        grade.uniforms.vhs.value = vhs; grade.uniforms.cine.value = cine; grade.uniforms.sharpen.value = 1 - vhs;
         r.getDrawingBufferSize(grade.uniforms.res.value);
       }
       // without the grade, a CSS filter gives the home-video chapter its faded warmth

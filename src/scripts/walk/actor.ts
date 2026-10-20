@@ -73,9 +73,10 @@ export async function makeActor(base: string, spec: ActorSpec): Promise<Actor> {
   let model = models.get(spec.model);
   if (!model) { model = loader.loadAsync(`${base}people/${spec.model}.glb`).then((g) => g.scene); models.set(spec.model, model); }
   const tex = (name: string, srgb: boolean) => texture(`${base}people/${name}.webp`, srgb);
-  const [src, all, bodyMap, headMap, bodyNormal, headNormal] = await Promise.all([
+  const [src, all, bodyMap, headMap, bodyNormal, headNormal, bodyRough, headRough] = await Promise.all([
     model, clips, tex(`${spec.skins}_body_color`, true), tex(`${spec.skins}_head_color`, true),
     tex(`${spec.normals}_body_normal`, false), tex(`${spec.normals}_head_normal`, false),
+    tex(`${spec.normals}_body_rough`, false), tex(`${spec.normals}_head_rough`, false),
   ]);
 
   const body = cloneSkinned(src) as THREE.Group;
@@ -85,11 +86,14 @@ export async function makeActor(base: string, spec: ActorSpec): Promise<Actor> {
     m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false;
     m.material = (Array.isArray(m.material) ? m.material : [m.material]).map((old) => {
       const head = old.name.endsWith('head');
-      const mat = new THREE.MeshStandardMaterial({
+      // skin and cloth each get their own finish: the artist's shine maps say where (lips, eyes, nose, leather),
+      // and skin has a faint sheen, the soft glow at grazing angles that makes it read as skin, not plastic
+      const mat = new THREE.MeshPhysicalMaterial({
         name: old.name, map: head ? headMap : bodyMap, normalMap: head ? headNormal : bodyNormal,
-        roughness: head ? 0.62 : 0.82, metalness: 0,
+        roughnessMap: head ? headRough : bodyRough, roughness: 1, metalness: 0,
+        sheen: head ? 0.35 : 0.5, sheenRoughness: head ? 0.45 : 0.8, sheenColor: new THREE.Color(head ? 0xFFC9A8 : 0x9AA0A8),
       });
-      if (!head && spec.tint !== undefined) tintClothes(mat, spec.tint);
+      dress(mat, head ? undefined : spec.tint);
       return mat;
     }) as unknown as THREE.Material;
     if ((m.material as unknown as THREE.Material[]).length === 1) m.material = (m.material as unknown as THREE.Material[])[0];
@@ -144,21 +148,31 @@ export async function makeActor(base: string, spec: ActorSpec): Promise<Actor> {
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
-/** Recolour the strongly coloured panels of his top, keeping their shading; skin, denim, white and black stay. */
-function tintClothes(mat: THREE.MeshStandardMaterial, tint: number) {
-  const c = new THREE.Color(tint);
+/** The light that edges him against the scene, like a film's back light; the walk sets it to each place's sky. */
+export const rimLight = { color: { value: new THREE.Color(0xBFD4FF) }, strength: { value: 0.35 } };
+
+/** Add the rim light to his materials and, for his top, dye its strongly coloured panels, keeping their shading;
+ *  skin, denim, white and black stay. */
+function dress(mat: THREE.MeshPhysicalMaterial, tint?: number) {
+  const c = new THREE.Color(tint ?? 0xffffff);
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.tint = { value: c };
+    sh.uniforms.rimColor = rimLight.color; sh.uniforms.rimStrength = rimLight.strength;
     sh.fragmentShader = sh.fragmentShader
-      .replace('void main() {', 'uniform vec3 tint;\nvoid main() {')
-      .replace('#include <map_fragment>', `#include <map_fragment>
+      .replace('void main() {', 'uniform vec3 tint, rimColor; uniform float rimStrength;\nvoid main() {')
+      .replace('#include <map_fragment>', tint === undefined ? '#include <map_fragment>' : `#include <map_fragment>
         {
           vec3 t = diffuseColor.rgb;
           float hi = max(t.r, max(t.g, t.b)), lo = min(t.r, min(t.g, t.b));
           float dyed = smoothstep(0.04, 0.1, (hi - lo) / max(hi, 1e-3) * hi) * step(max(t.r, t.g), t.b);
           vec3 c = tint * (hi / max(max(tint.r, max(tint.g, tint.b)), 1e-3));
           diffuseColor.rgb = mix(t, c, dyed);
+        }`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        {
+          float rim = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
+          totalEmissiveRadiance += rimColor * rim * rimStrength * (0.4 + 0.6 * diffuseColor.rgb);
         }`);
   };
-  mat.customProgramCacheKey = () => `tint-${tint}`;
+  mat.customProgramCacheKey = () => `dress-${tint ?? 'none'}`;
 }
