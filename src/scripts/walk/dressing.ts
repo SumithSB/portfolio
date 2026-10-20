@@ -97,7 +97,7 @@ const PLANS: Plan[] = [
   { facades: ['plaster'], tint: [0xF2E3C8, 0xE8D2B0, 0xD9E4D8, 0xF0D9C0], floors: [1, 2], rows: [], trees: 14, leaf: [0x4E7A3A, 0x5E8A3E, 0x3F6232], markings: false },
   { facades: ['plaster'], tint: [0xE9DCC6, 0xD8E0E4, 0xF0E0C8, 0xE4D0D8, 0xCFDCCB], floors: [3, 5], rows: [-20, -32], trees: 10, leaf: [0x4E7A3A, 0x5B7F4E], markings: true },
   { facades: ['plaster', 'glass'], tint: [0xEADFCB, 0xD9D4E6, 0xF2DDBB, 0xCFE0D6], floors: [3, 7], rows: [-22, -34], trees: 14, leaf: [0x3F6E35, 0x4E7A3A], markings: true },
-  { facades: ['glass', 'plaster'], tint: [0xFFFFFF, 0xE8E0D4, 0xD6E2EC], floors: [4, 10], rows: [-30, -42], trees: 16, leaf: [0x4E7A3A, 0xB5452F], markings: true },
+  { facades: ['glass', 'plaster'], tint: [0xFFFFFF, 0xE8E0D4, 0xD6E2EC], floors: [4, 10], rows: [-30, -42], trees: 16, leaf: [0x4E6843, 0x797047], markings: true },
   { facades: ['brick'], tint: [0xFFFFFF, 0xF0E4DC, 0xE0D4CC], floors: [2, 4], rows: [-24, -34], trees: 14, leaf: [0x51633A, 0x6B6A3A, 0x7A5A32], markings: true },
   { facades: ['brick', 'glass'], tint: [0xD8D0D0, 0xC8C8D4, 0xE0D8D0], floors: [3, 8], rows: [], trees: 12, leaf: [0x2E3E2A, 0x34452E], markings: true }, // across the river is the real skyline, in the backdrop
 ];

@@ -69,24 +69,16 @@ const Grade = {
 };
 
 // The dissolve between chapters: the previous place, captured a moment earlier this frame, melts into the next one.
-// Bright parts go first, through a soft grain, the way film burns from one shot to the next.
+// A neutral dissolve preserves exposure and avoids a noisy wipe across the face.
 const Blend = {
   uniforms: { tDiffuse: { value: null }, tPrev: { value: null }, amount: { value: 0 }, gain: { value: 1 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `
     uniform sampler2D tDiffuse, tPrev; uniform float amount, gain; varying vec2 vUv;
-    float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-    float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
-      return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
     void main(){
       vec4 next = texture2D(tDiffuse, vUv);
       vec4 prev = texture2D(tPrev, vUv) * gain;
-      float l = dot(prev.rgb, vec3(0.299, 0.587, 0.114));
-      float key = clamp(0.55 * (1.0 - l / (1.0 + l)) + 0.3 * noise(vUv * vec2(9.0, 6.0)) + 0.15 * noise(vUv * 40.0), 0.0, 1.0);
-      float w = smoothstep(key - 0.22, key + 0.22, amount * 1.44 - 0.22);
-      vec4 col = mix(prev, next, w);
-      col.rgb *= 1.0 + 0.16 * sin(amount * 3.14159); // a touch of light as the shots overlap
-      gl_FragColor = col;
+      gl_FragColor = mix(prev, next, amount);
     }`,
 };
 
@@ -138,11 +130,11 @@ export function createPost(r: THREE.WebGLRenderer, scene: THREE.Scene, cam: THRE
       ao?.setSize(Math.round(w * ratio * 0.5), Math.round(h * ratio * 0.5));
     },
     update(t: number, night: number, warmth: number, fade = 0, vhs = 0, cine = 0) {
-      if (bloom) { bloom.strength = 0.08 + night * 0.12; bloom.threshold = 1.05; }
+      if (bloom) { bloom.strength = 0.04 + night * 0.06; bloom.threshold = 1.05; }
       if (grade) {
         grade.uniforms.time.value = t; grade.uniforms.warmth.value = warmth * 0.35;
         grade.uniforms.vignette.value = 0.12 + night * 0.08; grade.uniforms.fade.value = fade;
-        grade.uniforms.vhs.value = vhs; grade.uniforms.cine.value = cine; grade.uniforms.sharpen.value = 1 - vhs;
+        grade.uniforms.vhs.value = vhs * 0.18; grade.uniforms.cine.value = cine; grade.uniforms.sharpen.value = 1 - vhs;
         r.getDrawingBufferSize(grade.uniforms.res.value);
       }
       // without the grade, a CSS filter gives the home-video chapter its faded warmth

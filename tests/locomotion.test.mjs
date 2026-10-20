@@ -11,12 +11,12 @@ const temporary = await mkdtemp(join(tmpdir(), 'portfolio-rig-'));
 const output = join(temporary, 'rig.mjs');
 await build({
   stdin: {
-    contents: `export { sculptStage } from './src/scripts/walk/figure'; export { makePerson, pose } from './src/scripts/walk/person'; export { advanceRoot, advanceGait } from './src/scripts/walk/locomotion'; export * as THREE from 'three';`,
+    contents: `export { sculptStage } from './src/scripts/walk/figure'; export { makePerson, pose } from './src/scripts/walk/person'; export { advanceRoot, advanceGait, advanceTravel } from './src/scripts/walk/locomotion'; export * as THREE from 'three';`,
     resolveDir: root,
   },
   bundle: true, platform: 'node', format: 'esm', outfile: output,
 });
-const { advanceRoot, advanceGait, sculptStage, makePerson, pose, THREE } = await import(pathToFileURL(output).href);
+const { advanceRoot, advanceGait, advanceTravel, sculptStage, makePerson, pose, THREE } = await import(pathToFileURL(output).href);
 await rm(temporary, { recursive: true });
 
 test('root motion stays within walking speed in either direction and never overshoots', () => {
@@ -57,4 +57,33 @@ test('the actual adult rig keeps stance feet stable at supported forward and rev
     // Allow the small ankle displacement from pelvic rotation, not root sliding.
     assert(mean < 0.06, `stance-foot drift ${mean} at speed ${speed}`);
   }
+});
+
+
+test('travel accelerates gently, brakes at its destination, and is frame-rate independent', () => {
+  const finishes = [];
+  for (const hz of [30, 60, 120]) {
+    let state = { position: 0, velocity: 0 };
+    for (let i = 0; i < hz * 8; i++) {
+      const next = advanceTravel(state.position, state.velocity, 4, 1 / hz);
+      assert(Math.abs(next.velocity) <= 1.65 + 1e-9);
+      assert(Math.abs(next.velocity - state.velocity) <= 3.8 / hz + 1e-6);
+      assert(next.position <= 4);
+      state = next;
+    }
+    assert(Math.abs(state.position - 4) < 0.001);
+    finishes.push(state.position);
+  }
+  assert(Math.max(...finishes) - Math.min(...finishes) < 0.001);
+});
+
+test('travel reverses with continuous velocity and settles at a new target', () => {
+  let state = { position: 2, velocity: 1.65 };
+  for (let i = 0; i < 600; i++) {
+    const next = advanceTravel(state.position, state.velocity, -2, 1 / 60);
+    assert(Math.abs(next.velocity - state.velocity) <= 3.8 / 60 + 1e-6);
+    assert(next.position >= -2);
+    state = next;
+  }
+  assert(Math.abs(state.position + 2) < 0.001);
 });

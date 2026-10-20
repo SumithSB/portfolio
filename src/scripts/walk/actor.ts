@@ -91,7 +91,7 @@ export async function makeActor(base: string, spec: ActorSpec): Promise<Actor> {
       const mat = new THREE.MeshPhysicalMaterial({
         name: old.name, map: head ? headMap : bodyMap, normalMap: head ? headNormal : bodyNormal,
         roughnessMap: head ? headRough : bodyRough, roughness: 1, metalness: 0,
-        sheen: head ? 0.35 : 0.5, sheenRoughness: head ? 0.45 : 0.8, sheenColor: new THREE.Color(head ? 0xFFC9A8 : 0x9AA0A8),
+        sheen: head ? 0.12 : 0.25, sheenRoughness: head ? 0.65 : 0.8, sheenColor: new THREE.Color(head ? 0xFFC9A8 : 0x9AA0A8),
       });
       dress(mat, head ? undefined : spec.tint);
       return mat;
@@ -114,6 +114,7 @@ export async function makeActor(base: string, spec: ActorSpec): Promise<Actor> {
   })) as Record<(typeof CLIPS)[number], THREE.AnimationAction>;
   act.walk.timeScale = 0; // driven by distance below
   const weight = { walk: 0, idle: 1, wave: 0, phone: 0 };
+  let previousMode: ActorMode = 'idle';
   const stride = STRIDE * spec.height / 1.74;
 
   // a phone for the end of the story, in his right hand
@@ -129,7 +130,12 @@ export async function makeActor(base: string, spec: ActorSpec): Promise<Actor> {
       const target = { walk: 0, idle: 0, wave: 0, phone: 0 };
       if (s.mode === 'phone') target.phone = 1;
       else if (s.mode === 'wave') target.wave = 1;
-      else { target.walk = clamp01(s.moving * 1.6); target.idle = 1 - target.walk; }
+      else { target.walk = THREE.MathUtils.smoothstep(s.moving, 0.015, 0.25); target.idle = 1 - target.walk; }
+      if (s.mode !== previousMode) {
+        if (s.mode === 'phone') act.phone.reset().play();
+        if (s.mode === 'wave') act.wave.reset().play();
+        previousMode = s.mode;
+      }
       const k = 1 - Math.exp(-dt * 6);
       let sum = 0;
       for (const n of CLIPS) { weight[n] += (target[n] - weight[n]) * k; sum += weight[n]; }
@@ -140,13 +146,11 @@ export async function makeActor(base: string, spec: ActorSpec): Promise<Actor> {
       // starting the wave from its beginning each time he waves
       if (target.wave === 0 && weight.wave < 0.01) act.wave.time = 0;
       phone.visible = weight.phone > 0.5;
-      (phone.material as THREE.MeshStandardMaterial).emissiveIntensity = weight.phone * 0.6;
+      (phone.material as THREE.MeshStandardMaterial).emissiveIntensity = weight.phone * 0.15;
       mixer.update(dt);
     },
   };
 }
-
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 /** The light that edges him against the scene, like a film's back light; the walk sets it to each place's sky. */
 export const rimLight = { color: { value: new THREE.Color(0xBFD4FF) }, strength: { value: 0.35 } };

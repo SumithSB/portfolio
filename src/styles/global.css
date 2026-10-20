@@ -59,7 +59,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .gut { padding-left: max(16px, env(safe-area-inset-left, 0px), 4vw); padding-right: max(16px, env(safe-area-inset-right, 0px), 4vw); }
 .kicker { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--soft); }
 h1, h2 { font-family: var(--serif); font-weight: 400; letter-spacing: -0.03em; text-wrap: balance; }
-h1, h2, .project h3, .top .name, .contact .mail { font-variation-settings: 'SOFT' 80, 'WONK' 0; }
+h1, h2, .project h3, .top .name, .contact .mail { font-variation-settings: 'SOFT' 20, 'WONK' 0; }
 h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.015em; }
 
 .skip { position: absolute; left: 16px; top: -60px; z-index: 30; background: var(--amber); color: var(--ink); padding: 10px 14px; border-radius: 8px; text-decoration: none; }
@@ -283,7 +283,7 @@ html.lenis, html.lenis body { height: auto; }
 .lenis.lenis-stopped { overflow: clip; }
 
 /* The story is framed like a small film: quiet chrome, a clear subject, readable words. */
-:root { --amber: #E9B66D; --glass: rgba(17,24,29,.78); --radius: 22px; }
+:root { --amber: #E9B66D; --glass: rgba(17,24,29,.78); --radius: 10px; }
 .top { top: 22px; }
 .top .name { display: flex; align-items: center; gap: 10px; padding: 8px 17px 8px 8px; font-family: var(--sans); font-size: 12px; font-weight: 500; letter-spacing: -.02em; }
 .name-mark { display: grid; place-items: center; width: 28px; height: 28px; background: #ECD9BA; color: #26312E; border-radius: 50%; font-family: var(--serif); font-size: 24px; line-height: 1; }
@@ -310,9 +310,9 @@ h1 em, .head h2 em { font-weight: 400; color: #516850; }
 .walk.is-3d .scene-caption { display: grid; position: absolute; right: max(4vw, 16px); bottom: 104px; text-align: right; color: #FBF4E8; text-shadow: 0 1px 15px #1118; pointer-events: none; gap: 2px; }
 .scene-time { font-size: 10px; text-transform: uppercase; letter-spacing: .22em; }
 .scene-location { font-family: var(--serif); font-style: italic; font-size: 25px; }
-/* The year he is in. In the childhood chapter it looks like a camcorder's date stamp. */
+/* Consistent date typography keeps the chronology readable across all chapters. */
 .scene-year { font-family: var(--serif); font-size: 44px; line-height: 1; font-variant-numeric: tabular-nums lining-nums; letter-spacing: -.01em; margin-bottom: 6px; transition: color .6s, text-shadow .6s, letter-spacing .6s; }
-.walk[data-era="tape"] .scene-year { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 34px; letter-spacing: .08em; color: #FFE7A8; text-shadow: 1.5px 0 #ff4d4d99, -1.5px 0 #4dc3ff99, 0 1px 12px #1118; }
+.walk[data-era="tape"] .scene-year { color: #F3E7D4; text-shadow: 0 1px 12px #1118; }
 .skip-walk { display: none; }
 .walk.is-3d .skip-walk { display: flex; position: absolute; top: 94px; right: max(4vw, 16px); gap: 22px; align-items: center; color: #F7EBD8; font-size: 11px; text-decoration: none; padding: 9px 14px; border-radius: 999px; background: #18232EC4; border: 1px solid #FFFFFF14; }
 .walk.at-start .skip-walk { opacity: 0; pointer-events: none; }
@@ -391,11 +391,11 @@ h1 em, .head h2 em { font-weight: 400; color: #516850; }
   .walk.is-3d:not(.at-start) .scene-caption { display: none; }
   .walk.is-3d .skip-walk { top: 72px; right: 16px; font-size: 9px; padding: 6px 10px; gap: 12px; }
   .walk.is-3d .chapter { top: auto; left: 16px; right: 16px; bottom: 87px; max-height: 45svh; transform: none; }
-  .walk.is-3d .chapter article { width: 100%; max-width: none; max-height: 45svh; padding: 18px 20px; gap: 9px; border-radius: 18px; background: #121D24F0; }
+  .walk.is-3d .chapter article { width: 100%; max-width: none; max-height: 45svh; padding: 18px 20px; gap: 9px; border-radius: 10px; background: #121D24F0; }
   .walk.is-3d .chapter .meta { font-size: 9px; }
   .walk.is-3d .chapter p.scene-note { display: none; }
   .walk.is-3d .chapter h2 { font-size: 27px; }
-  .walk.is-3d .chapter p.chapter-summary { font-size: 12px; line-height: 1.65; }
+  .walk.is-3d .chapter p.chapter-summary { font-size: 13px; line-height: 1.7; }
   .walk.is-3d .chapter-detail p { font-size: 12px; }
   .chapter-detail summary { font-size: 10px; padding-top: 7px; }
   .hud { padding-bottom: max(17px, env(safe-area-inset-bottom, 0px)); gap: 10px; }

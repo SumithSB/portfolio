@@ -12,23 +12,23 @@ export const chapters: Chapter[] = [
   {
     yr: 'Before',
     place: 'Karnataka',
-    title: 'Behind from the start',
+    title: 'Learning where to begin',
     sceneNote: 'State bus · CRT lab · 7:30 am',
     time: 'Dawn',
     p: [
       'I grew up in a small town where money was always tight. The safe path was a government job. I wanted to build something of my own.',
-      'At school, computer class meant switching one on and opening Paint. At university, my classmates had been coding for years. I felt behind. When the textbooks stayed abstract, the real education was noticing everyday friction around town and picturing the software that would fix it.',
+      'At school, computer class meant switching one on and opening Paint. At university, my classmates had been coding for years. I felt behind. I began finding my way by noticing problems around town and thinking about software that could help.',
     ],
   },
   {
     yr: '2020',
     place: 'Lockdown',
-    title: 'A problem one kilometre away',
+    title: 'The first useful thing',
     sceneNote: 'Shuttered street · Open kirana',
     time: 'Morning',
     p: [
       'During lockdown, groceries were only possible in a short window each day. The shop was a kilometre away, and most days people around me still could not reach it.',
-      'With a close friend, I built an app that connected local shops to the people around them. We entered it in a national hackathon and won, because judges saw real shopkeepers using it. For someone who always felt behind, that meant everything.',
+      'With a close friend, I built an app that connected local shops to the people around them. We won a national hackathon with it. Shopkeepers were already using what we had built; that mattered as much as the award.',
     ],
   },
   {
@@ -39,24 +39,24 @@ export const chapters: Chapter[] = [
     time: 'Noon',
     p: [
       'The win turned into Drogher Technologies. We launched, walked shop to shop, and found our first users.',
-      'Then well-funded competitors arrived with more money than we could imagine. Clean code lost to quick-commerce subsidies and shopkeepers who had sold on trust and credit for decades. We closed it cleanly. After a rough first interview, I kept building software for small businesses that paid from day one.',
+      'We struggled to compete with subsidised quick commerce and to fit into businesses built on trust and credit. We eventually closed the company. I continued building paid software for small businesses, with a clearer understanding of how much a product depends on the business around it.',
     ],
   },
   {
     yr: '2021',
     place: 'Bengaluru',
-    title: 'Owning the backend early',
+    title: 'Learning to take ownership',
     sceneNote: 'Purple Line metro · Late deploy',
     time: 'Golden hour',
     p: [
       'A mentor invited me to join his startup, TechMachinery Labs, as an intern. Within months I was on a contract, and I had a full-time backend role before I graduated.',
-      'I went from writing APIs to owning the core backend and the AI pipelines. When a flagship product had to be wound down and most of the team left, I was offered a way out. I stayed and kept building.',
+      'I went from writing APIs to owning the core backend and the AI pipelines. When a flagship product was wound down and much of the team left, I chose to stay. The work taught me to take responsibility for systems beyond their first release.',
     ],
   },
   {
     yr: '2025',
     place: 'Leicester',
-    title: 'Rain, lectures, and night builds',
+    title: 'Starting again in Leicester',
     sceneNote: 'University clocktower · 6:00 pm rain',
     time: 'Dusk',
     p: [
@@ -67,12 +67,12 @@ export const chapters: Chapter[] = [
   {
     yr: 'Now',
     place: 'London',
-    title: 'Why I build now',
+    title: 'Building with perspective',
     sceneNote: 'South Bank · Thames lights',
     time: 'Night',
     p: [
       'I started out wanting to earn well and prove I belonged. Money looked like the answer to everything.',
-      "Failed launches, late-night deploys, and a new country changed the metric. Now in London, I build production AI agents and backend systems that quietly take real work off someone's plate.",
+      "Running a company, maintaining systems, and moving countries changed what I value in the work. In London, I now build production AI agents and backend systems, with a focus on reliability and usefulness to the people using them.",
     ],
   },
 ];

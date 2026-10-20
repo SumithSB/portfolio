@@ -103,7 +103,26 @@ export function buildWorld(scene: THREE.Scene): World {
   };
   const tree = (x: number, z: number, s: number, col: number) => {
     const g = new THREE.Group(); const t = cyl(0.18 * s, 0.26 * s, 2.4 * s, mat(0x5A4430)); t.position.y = 1.2 * s; g.add(t);
-    [[0, 3.1, 0, 1.5], [1.0, 2.7, 0.4, 1.1], [-1.0, 2.8, -0.3, 1.15], [0.3, 3.6, -0.6, 1.0]].forEach(([a, b, c, rr]) => { const l = sphere(rr * s, mat(col), 12); l.position.set(a * s, b * s, c * s); g.add(l); });
+    // Small overlapping leaf clusters leave an irregular silhouette and glimpses of branches.
+    // Instancing keeps a tree to two draw calls instead of hundreds of individual meshes.
+    const leaf = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), mat(0xFFFFFF), 480);
+    const leafPose = new THREE.Object3D(), leafColor = new THREE.Color(col);
+    const random = rng(Math.floor(Math.abs(x * 107 + z * 31)) + 1);
+    for (let i = 0; i < 480; i++) {
+      const azimuth = random() * Math.PI * 2, vertical = random() * 2 - 1;
+      const radius = Math.cbrt(random()), ring = Math.sqrt(1 - vertical * vertical);
+      leafPose.position.set(Math.cos(azimuth) * ring * radius * 1.65 * s, (3.1 + vertical * radius * 1.45) * s, Math.sin(azimuth) * ring * radius * 1.35 * s);
+      const size = (0.1 + random() * 0.14) * s;
+      leafPose.scale.set(size * 1.5, size * 0.65, size);
+      leafPose.rotation.set(random() * 3, random() * 6, random() * 3);
+      leafPose.updateMatrix(); leaf.setMatrixAt(i, leafPose.matrix);
+      leaf.setColorAt(i, leafColor.clone().multiplyScalar(0.65 + random() * 0.45));
+    }
+    leaf.castShadow = true; leaf.receiveShadow = true; g.add(leaf);
+    for (const side of [-1, 1]) {
+      const branch = cyl(0.04 * s, 0.1 * s, 1.7 * s, mat(0x5A4430), 7);
+      branch.position.set(side * 0.45 * s, 2.5 * s, 0); branch.rotation.z = -side * 0.55; g.add(branch);
+    }
     g.position.set(x, 0, z); return add(g);
   };
   const lamp = (x: number, z: number, h = 4.2) => {
@@ -173,7 +192,18 @@ export function buildWorld(scene: THREE.Scene): World {
       const shape = new THREE.Shape(); shape.moveTo(-w / 2 - 0.3, 0); shape.lineTo(0, 1.1); shape.lineTo(w / 2 + 0.3, 0); shape.lineTo(-w / 2 - 0.3, 0);
       const roof = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: d + 0.6, bevelEnabled: false }), mat(0xA9512F, { r: 0.85 })); roof.position.set(0, h, -d / 2 - 0.3); roof.castShadow = true; g.add(roof);
       const door = box(0.7, 1.5, 0.05, mat(0x6E4A33)); door.position.set(0, 0.75, d / 2 + 0.02); g.add(door);
-      for (const sx of [-1, 1]) { const win = box(0.6, 0.55, 0.05, mat(0x3A4650)); win.position.set(sx * w * 0.3, 1.5, d / 2 + 0.02); g.add(win); }
+      g.add(at(box(w + 0.08, 0.22, d + 0.08, mat(0x82796B)), 0, 0.11, 0));
+      g.add(at(box(1.05, 0.12, 0.45, mat(0x918778)), 0, 0.06, d / 2 + 0.18));
+      g.add(at(box(w + 0.5, 0.1, 0.1, mat(0x695747)), 0, h, d / 2 + 0.26));
+      g.add(at(box(0.035, 0.16, 0.04, mat(0xB8A27D, { m: 0.5 })), 0.23, 0.78, d / 2 + 0.07));
+      for (const sx of [-1, 1]) {
+        const wx = sx * w * 0.3, wz = d / 2 + 0.02;
+        g.add(at(box(0.72, 0.68, 0.08, mat(0x9C8C73)), wx, 1.5, wz));
+        g.add(at(box(0.6, 0.55, 0.035, mat(0x3A4650, { r: 0.3 })), wx, 1.5, wz + 0.05));
+        g.add(at(box(0.8, 0.075, 0.18, mat(0xACA18C)), wx, 1.16, wz + 0.02));
+        for (const offset of [-0.16, 0, 0.16]) g.add(at(box(0.018, 0.55, 0.025, mat(0x45483F)), wx + offset, 1.5, wz + 0.08));
+        g.add(at(box(0.6, 0.025, 0.025, mat(0x45483F)), wx, 1.5, wz + 0.08));
+      }
       g.position.set(x, 0, z); add(g);
     };
     house(o + 6, -5.2, 4, 3, 2.6, 0xEBDDC0); house(o + 13, -6.5, 3.4, 3, 2.4, 0xE3C9A2); house(o + 38, -5.5, 4.4, 3.2, 2.7, 0xD8E0D2); house(o + 47, -6.6, 3.6, 3, 2.5, 0xEBDDC0);
@@ -285,7 +315,7 @@ export function buildWorld(scene: THREE.Scene): World {
       g.position.set(o + 34, 0, -5.4); add(g);
       for (let k = 0; k < 3; k++) { person(o + 31.5 + k * 2.4, -3.6, [0x2A2420, 0x6B4A2F, 0x3E7CB1][k], 0.8); add(at(box(0.45, 0.04, 0.3, mat(0x9BB7C9, { e: 0x5F88A8, ei: 0.4 })), o + 31.5 + k * 2.4, 0.95, -3.2)); }
     }
-    tree(o + 22, -4.6, 1.2, 0xC2452F); tree(o + 52, -5, 1.4, 0xC2452F); tree(o + 6, -4.8, 1.1, 0x4E6B3A);
+    tree(o + 22, -4.6, 1.2, 0x647044); tree(o + 52, -5, 1.4, 0x766B45); tree(o + 6, -4.8, 1.1, 0x4E6B3A);
   }
 
   /* ===== 5 · the UK at dusk, first rain (280..350) ===== */

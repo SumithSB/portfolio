@@ -7,7 +7,7 @@ import { createPost, type Quality } from './post';
 import { dressWorld, weather, createBackdrops } from './dressing';
 import type { Sculpted } from './figure';
 import { LOOKS } from './looks';
-import { advanceRoot } from './locomotion';
+import { advanceTravel } from './locomotion';
 import { makeActor, rimLight, type Actor, type ActorSpec } from './actor';
 
 // Light across one day: dawn, morning, noon, golden hour, dusk in the rain, night.
@@ -278,7 +278,8 @@ export function startWalk(ui: WalkUI) {
   /* ---------- the loop ---------- */
   // `w` is how far he has walked, in metres along one long road that runs through every chapter; it trails the
   // scroll at a walking pace. `camW` trails `w` a little, so the camera follows him like an operator would.
-  let w = targetWalk(progressAt()), prevW = w, camW = w, phase = 0, stillFor = 0, waved = false, waveT = 0, endT = 0;
+  let w = targetWalk(progressAt()), prevW = w, camW = w, phase = 0, stillFor = 0, endT = 0;
+  let velocity = 0;
   let cutT = -1, fade = 0, jumped = false;
   let smoothPtrX = 0, smoothPtrY = 0;
   let portraitShift = progressAt() < 0.012 ? -0.21 : 0.17;
@@ -308,7 +309,7 @@ export function startWalk(ui: WalkUI) {
     const night = lerp(A.night, B.night, kt), rain = lerp(A.rain, B.rain, kt);
     skyU.time.value = t; skyU.night.value = night; skyU.cloud.value = 0.35 + rain * 0.6;
     scene.environmentIntensity = lerp(0.4, 0.25, night);
-    fill.intensity = 1.4 + night * 7; fill.position.set(x + 1.6, 2.6, 2.6);
+    fill.intensity = 1.1 + night * 2.2; fill.position.set(x + 1.6, 2.6, 2.6);
     world.nightMats.forEach((m) => { m.emissiveIntensity = 0.06 + night * 0.55; });
     (world.stars.material as THREE.PointsMaterial).opacity = clamp((night - 0.55) * 2.2);
     (world.rain.material as THREE.LineBasicMaterial).opacity = rain * 0.75;
@@ -316,7 +317,7 @@ export function startWalk(ui: WalkUI) {
     hemi.groundColor.setRGB(lerp(0.35, 0.08, night), lerp(0.27, 0.09, night), lerp(0.21, 0.16, night));
     // his back light takes the sky's colour, and does more at night when he would otherwise sink into the dark
     rimLight.color.value.copy(skyU.top.value).lerp(sun.color, 0.4);
-    rimLight.strength.value = 0.22 + night * 0.5;
+    rimLight.strength.value = 0.06 + night * 0.12;
     const sunY = lerp(A.sunY, B.sunY, kt);
     skyU.sunDir.value.set(30, sunY, -18).normalize();
     sun.position.set(x + 30, sunY, -18); sun.target.position.set(x + 4, 0, 0);
@@ -339,7 +340,6 @@ export function startWalk(ui: WalkUI) {
     const dist = H * (narrow ? 6.2 : 6.4) * (1.06 - 0.1 * u) * near;
     cam.position.set(xc + lead + px + hx, H * 0.95 + py + hy, dist);
     cam.lookAt(xc - (narrow ? 0 : 1.35 * near), H * 0.8, 0);
-    cam.rotation.z += reduce ? 0 : Math.sin(t * 0.37) * 0.0025;
     sky.position.copy(cam.position);
     backdrops.update(c, cam.position.y);
   };
@@ -349,24 +349,28 @@ export function startWalk(ui: WalkUI) {
     if (stopped) return;
     requestAnimationFrame(frame);
     if (!visible || document.hidden) { last = now; return; }
-    if (now - lastActive > 4500 && cutT < 0 && (endT === 0 || endT > 4) && ++idleTick % 3 !== 0) return;
+    const idling = now - lastActive > 4500 && Math.abs(targetWalk(progressAt()) - w) < 0.001 && cutT < 0 && (endT === 0 || endT > 4);
+    if (idling && ++idleTick % 3 !== 0) return;
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
     const t = now / 1000;
     fit();
 
     const prog = progressAt();
     const target = targetWalk(prog);
-    if (reduce) { w = target; camW = w; }
+    if (reduce) { w = target; camW = w; velocity = 0; }
     else if (cutT >= 0) {
       // A cut: dip to black, move him, come back up.
       cutT += dt;
-      if (cutT >= 0.22 && !jumped) { w = targetWalk(progressAt()); prevW = w; camW = w; jumped = true; }
+      if (cutT >= 0.22 && !jumped) { w = targetWalk(progressAt()); prevW = w; camW = w; velocity = 0; jumped = true; }
       fade = cutT < 0.22 ? cutT / 0.22 : Math.max(0, 1 - (cutT - 0.22) / 0.3);
       if (cutT > 0.52) { cutT = -1; fade = 0; }
     } else if (Math.abs(target - w) > CUT_GAP) { cutT = 0; jumped = false; }
-    else w = advanceRoot(w, target, dt);
+    else {
+      const travel = advanceTravel(w, velocity, target, dt);
+      w = travel.position; velocity = travel.velocity;
+    }
     camW += (w - camW) * (1 - Math.exp(-dt * 3.5));
-    if (!reduce && pinned === null) adapt(dt);
+    if (!reduce && !idling && pinned === null) adapt(dt);
     const dx = w - prevW; prevW = w;
     const signedSpeed = cutT >= 0 ? 0 : dx / Math.max(dt, 1e-3);
     const speed = Math.abs(signedSpeed);
@@ -415,15 +419,12 @@ export function startWalk(ui: WalkUI) {
     // in step, so he grows up mid-stride as one place becomes the next.
     const moving = clamp(speed * 0.6);
     stillFor = moving > 0.05 ? 0 : stillFor + dt;
-    if (moving > 0.05) waved = false;
     const atEnd = x > END_X - 2.5 && ch === CHAPTERS - 1;
     endT = atEnd ? endT + dt : 0;
 
     let mode: PoseState['mode'] = 'walk';
-    if (atEnd) mode = 'phone';
-    else if (atStart && stillFor > 3 && !waved && !reduce) { mode = 'wave'; waveT += dt; if (waveT > 2.6) { waved = true; waveT = 0; } }
+    if (atEnd && stillFor > 0.65) mode = 'phone';
     else if (stillFor > 0.4) mode = 'idle';
-    else waveT = 0;
 
     const turn = stillFor > 0.4 || atEnd ? -0.55 : 0;
     const turnBlend = reduce ? 1 : 1 - Math.exp(-dt * 3.2); // a weighty turn; the head leads it
@@ -456,7 +457,7 @@ export function startWalk(ui: WalkUI) {
     world.lightLines.forEach((l, i) => {
       const grow = reduce ? (atEnd ? 1 : 0) : clamp((endT - 0.6 - i * 0.25) / 1.6);
       l.geometry.setDrawRange(0, Math.floor(smooth(grow) * 41));
-      (l.material as THREE.LineBasicMaterial).opacity = grow * 0.9;
+      (l.material as THREE.LineBasicMaterial).opacity = grow * 0.12;
     });
 
     // Life in the world.
