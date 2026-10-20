@@ -8,3 +8,12 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# Leftovers from the old Flutter site and IDE project files
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.cursor/
+
+# Claude Code's local memory store for this project
+-Users-*/

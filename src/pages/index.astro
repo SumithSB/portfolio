@@ -27,47 +27,47 @@ const traits = [
   { title: 'Between people and code', text: 'I’ve signed up shops at the counter, designed patient records for a hospital, turned client goals into architecture and guided interns. I do my best work where the business problem meets the system.' },
 ];
 
-const toolkit = ['Python', 'Node.js', 'FastAPI', 'PostgreSQL', 'MongoDB', 'AWS', 'Docker', 'LLM agents', 'RAG', 'Security automation', 'Flutter'];
+const toolkit = ['Python', 'TypeScript', 'FastAPI', 'PostgreSQL + pgvector', 'Tool-calling agents', 'Multi-agent orchestration', 'MCP', 'RAG and retrieval evals', 'AWS', 'Docker', 'Supabase', 'Security automation'];
 
 // Named, minimal: where, what, when. Work and study kept apart, newest first. Jobs carry what I actually built.
 const work = [
   {
-    when: 'Jul 2026 to now', place: 'London', org: 'Goodspeed Studio', roles: ['AI Engineer'],
-    note: 'Building LLM agents and the infrastructure around them.',
+    when: 'Jul 2026 to now', place: 'London', org: 'Goodspeed Studio', roles: ['AI Engineer', 'Contract, then freelance'],
+    note: 'Production AI agents and the backend around them.',
     points: [
-      'Retrieval-augmented agents on Postgres and pgvector: ingestion, chunking and embedding, answers with citations, and a recall@k eval that every change has to pass.',
-      'Claude-based agents through the Vercel AI SDK, with swappable model providers, tool calling, and a human approval step before anything is written.',
-      'Scheduled agents that pull from third-party APIs on a cron and report into Slack, holding every change for review.',
-      'Crawling and scoring in TypeScript, with reports rendered to shareable images on the server.',
-      'LLM document extraction from PDFs orchestrated in n8n, rolled out in shadow mode and checked field by field against the system it replaced.',
+      'Built and hardened a production Slack agent used daily by 16+ people: tool calling, prompt caching, file reading, human-review steps and multi-tenant persistent memory, where I traced and fixed a cross-client confidentiality boundary.',
+      'Built a Python agent on Claude that pulls from job-board and contact-data APIs over REST and webhooks and surfaces about 20 qualified leads a day.',
+      'Led the production launch of a website chat agent, including a GDPR, PECR and EU AI Act review of data retention and handling across every provider in the stack.',
+      'Lead production engineering for client platforms: Supabase row-level security audits, production-readiness reviews, release management and rollback drills.',
     ],
   },
   {
-    when: 'Jan 2025 to now', place: 'Remote, UK', org: 'Visiminds Technologies', roles: ['Software Engineer'],
-    note: 'Backend engineering and security automation.',
+    when: 'Oct 2026 to now', place: 'Remote, UK', org: 'Visiminds Technologies', roles: ['Software Engineer', 'Freelance contract, after a first contract from Jun to Sep 2025'],
+    note: 'Security testing (VAPT) automation, in Python and Flask.',
     points: [
-      'Led backend development in Python, deployed and scaled on AWS.',
-      'Wrote parsers that normalise output from OWASP Top 10 checks and open-source scanners into structured findings for automated reporting.',
-      'Built the scanning and reporting pipelines, and guided a small team of interns.',
+      'Built a platform that runs 14 security tools, Nmap, Nikto, Nuclei and TestSSL among them, and turns their results into structured reports, replacing a manual analyst workflow.',
+      'Designed a five-stage pipeline (scan, parse, aggregate, correlate, report) that normalises every tool’s output into one vulnerability schema, with deduplication across tools.',
+      'Added a MongoDB-backed job queue with 20 concurrent workers, cutting scan-to-report time by 95%, from about 4 hours to under 15 minutes. It runs weekly and monthly cycles for 10+ enterprise clients.',
     ],
   },
   {
     when: 'Nov 2021 to Dec 2024', place: 'Bengaluru', org: 'TechMachinery Labs', roles: ['Software Engineer', 'Software Development Engineer', 'SDE 1, part-time'],
-    note: 'Joined as an intern and grew into leading backend and AI work.',
+    note: 'Joined part-time in my final year, and grew into leading backend and AI work.',
     points: [
-      'Started on Flutter apps with Node.js behind them, then moved the backend to Python as the work turned to AI.',
-      'Led backend development for agentic AI and LLM systems: agents that retrieve from vector databases before they act, served through FastAPI and Flask.',
-      'Built automated data synchronisation between clouds in different regions, and integrated payment gateways end to end.',
-      'Designed the data layer across Postgres and Mongo, shipped everything in Docker, and turned business requirements into production-ready proofs of concept.',
+      'Led the FastAPI backend of an agentic knowledge platform for industrial engineering design, answering natural-language queries in under 5 seconds.',
+      'Designed a multi-agent system on AWS Strands that combines pgvector retrieval, a structured materials database and parsed equipment data across 3+ agent types.',
+      'Built a parsing pipeline that turns unstructured engineering specs into structured JSON with 50+ fields, at 94% accuracy on a 50-document test set.',
+      'Before that: 10+ REST APIs across a Node.js microservices codebase, role-based access across 5 roles, a payment gateway with full audit trails, and a move from on-premise storage to S3.',
+      'Started on Flutter apps and Python and Node.js backends over PostgreSQL and MongoDB.',
     ],
   },
   {
     when: 'Nov 2020 to May 2022', place: 'Bengaluru', org: 'Drogher Technologies', roles: ['Co-Founder and Engineering Lead'],
     note: 'Co-founded a quick-commerce startup and led its engineering.',
     points: [
-      'Designed and built the mobile and web platform: ordering, real-time fulfilment, inventory and last-mile logistics.',
-      'Owned security, scalability and availability end to end.',
-      'Led engineering through incubation at Great Lakes, Chennai, working closely with marketing and operations.',
+      'Built the platform connecting local stores to customers with real-time order management, on Node.js, PostgreSQL, Flutter and AWS, with CI/CD in GitHub Actions.',
+      'Led a team of 4, and made the technical call to pivot from B2C to B2B consulting.',
+      'Delivered full-stack products for clients in healthcare, food delivery and co-working.',
     ],
   },
   {
@@ -82,7 +82,7 @@ const work = [
   },
 ];
 const study = [
-  { when: 'Jan 2025 to Jul 2026', place: 'Leicester', org: 'University of Leicester', roles: ['MSc Advanced Computer Science'], note: 'Alongside part-time work and backend contracts. Master\'s project: Fashion AI, a personal styling assistant.' },
+  { when: 'Jan 2025 to Jul 2026', place: 'Leicester', org: 'University of Leicester', roles: ['MSc Advanced Computer Science, Distinction'], note: 'Alongside part-time work and backend contracts. My dissertation, Fashion AI, won Best Technical Project 2026.' },
   { when: 'Aug 2018 to Jul 2022', place: 'Bengaluru', org: 'Ramaiah Institute of Technology', roles: ['BE Information Science'], note: 'Started out behind, and learned by building. Won hackCOVID and OneHack in 2020.' },
 ];
 ---
@@ -243,7 +243,7 @@ const study = [
           <div class="memory-visual" aria-hidden="true"><span>yesterday</span><i></i><b>context, kept.</b><i></i><span>next session</span><div class="memory-orbit"></div></div>
           <img class="logo" src={m('brainvault-logo.svg')} width="56" height="56" alt="" loading="lazy" />
           <h3 id="p-brainvault">Brainvault</h3>
-          <p>Coding agents forget everything between sessions, and I was tired of explaining the same things again. Brainvault gives them a memory that lives on your own machine.</p>
+          <p>Coding agents forget everything between sessions, and I was tired of explaining the same things again. Brainvault gives them a memory that lives on your own machine: 12 MCP tools over SQLite full-text and semantic search.</p>
           <p class="links">
             <a href="https://github.com/SumithSB/brainvault">Code on GitHub</a>
             <a href="https://pypi.org/project/brainvault/">On PyPI</a>
@@ -253,7 +253,7 @@ const study = [
           <div class="fashion-visual" aria-hidden="true"><span class="swatch"></span><span class="swatch"></span><span class="swatch"></span><p>A little more <em>you.</em></p></div>
           <svg class="logo" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="27" /><path d="M20 18l8 6 8-6 6 6-5 4v14H19V28l-5-4z" /></svg>
           <h3 id="p-fashion">Fashion AI</h3>
-          <p>My Master's project. A styling app that starts from you: your skin tone, your build, where you're going. It suggests what to wear and can talk you through why.</p>
+          <p>My Master's project, and Best Technical Project 2026. A styling app that starts from you: your skin tone, your build, where you're going. It suggests what to wear and can talk you through why, with hybrid retrieval scoring MRR@6 0.91.</p>
         </article>
       </div>
       <a class="all-work" href={links.github}>There’s always another idea in progress.<span>Follow the builds on GitHub</span></a>
