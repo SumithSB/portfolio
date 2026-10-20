@@ -38,7 +38,7 @@ const texture = (url: string, srgb: boolean) => {
   let t = textures.get(url);
   if (!t) {
     t = new THREE.TextureLoader().loadAsync(url).then((tex) => {
-      tex.flipY = false; tex.anisotropy = 4;
+      tex.flipY = false; tex.anisotropy = 8;
       if (srgb) tex.colorSpace = THREE.SRGBColorSpace;
       return tex;
     });

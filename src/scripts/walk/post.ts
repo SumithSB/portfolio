@@ -37,8 +37,9 @@ const Grade = {
         vec2 uv = vUv + vec2(sin(vUv.y * 9.0 + time * 0.8) * 0.0004, 0.0);
         vec3 soft = (texture2D(tDiffuse, uv - 2.0 * px).rgb + 2.0 * texture2D(tDiffuse, uv - px).rgb + 2.0 * texture2D(tDiffuse, uv).rgb
           + 2.0 * texture2D(tDiffuse, uv + px).rgb + texture2D(tDiffuse, uv + 2.0 * px).rgb) / 8.0;
-        vec3 bleed = (texture2D(tDiffuse, uv - 3.0 * px).rgb + texture2D(tDiffuse, uv - 5.0 * px).rgb + texture2D(tDiffuse, uv - 7.0 * px).rgb) / 3.0;
-        vec3 yiq = vec3((toYIQ * soft).x, (toYIQ * bleed).yz * 0.82);
+        vec3 bleed = (texture2D(tDiffuse, uv - 1.0 * px).rgb + texture2D(tDiffuse, uv - 2.0 * px).rgb + texture2D(tDiffuse, uv - 3.0 * px).rgb) / 3.0;
+        // keep most of the sharp picture: the tape look is a hint, it mustn't smear him
+        vec3 yiq = vec3(mix((toYIQ * col.rgb).x, (toYIQ * soft).x, 0.5), mix((toYIQ * col.rgb).yz, (toYIQ * bleed).yz, 0.45) * 0.88);
         vec3 tape = toRGB * yiq;
         tape = tape / (1.0 + tape * 0.18) + vec3(0.03, 0.022, 0.012); // rolled-off highlights, lifted warm blacks
         tape *= 1.0 - 0.05 * (0.5 + 0.5 * cos(vUv.y * res.y * 2.094)); // scan lines every third pixel
@@ -97,7 +98,7 @@ export function createPost(r: THREE.WebGLRenderer, scene: THREE.Scene, cam: THRE
   let width = 1, height = 1, pixelRatio = 1;
   const ensure = () => {
     if (q === 0 || composer) return;
-    const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 0 });
+    const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }); // smooth edges; without it fine detail like faces shimmers and smears
     composer = new EffectComposer(r, target);
     composer.addPass(new RenderPass(scene, cam));
     if (q === 2) {
@@ -141,7 +142,7 @@ export function createPost(r: THREE.WebGLRenderer, scene: THREE.Scene, cam: THRE
     /** Keep this frame's view of the scene; the next render dissolves from it by `amount` (0 = all of it). */
     capture(amount: number) {
       r.getDrawingBufferSize(size);
-      if (!prev) prev = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: q === 0 ? 4 : 0 });
+      if (!prev) prev = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 });
       else if (prev.width !== size.x || prev.height !== size.y) prev.setSize(size.x, size.y);
       r.setRenderTarget(prev); r.render(scene, cam); r.setRenderTarget(null);
       blendAmount = amount; capturedExposure = r.toneMappingExposure; pending = true;
