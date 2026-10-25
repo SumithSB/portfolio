@@ -115,7 +115,9 @@ h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.015em; }
 .walk:not(.is-3d) .chapter:nth-child(4) { background: linear-gradient(#CFE0EA, #EFB27A); color: var(--ink); }
 .walk:not(.is-3d) .chapter:nth-child(5) { background: linear-gradient(#5A5470, #2B3250); }
 .walk:not(.is-3d) .chapter:nth-child(6) { background: linear-gradient(#2B3250, var(--night)); }
-.walk:not(.is-3d) .chapter:nth-child(-n + 4) .meta span { color: #8A4E0E; }
+/* Night-theme amber is about 1.2:1 on these daylight backgrounds. */
+.walk:not(.is-3d) .chapter:nth-child(-n + 4) .meta span,
+.walk:not(.is-3d) .chapter:nth-child(-n + 4) .scene-note { color: #6B3A08; }
 
 /* ---------- the walk in 3D ---------- */
 .walk.is-3d { height: 1100svh; }
