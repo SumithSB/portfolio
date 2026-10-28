@@ -153,3 +153,44 @@ if (!reduce && !coarse) {
     });
   });
 }
+
+/* ---------- Privacy-friendly analytics (GoatCounter: no cookies, no personal data) ---------- */
+// The walk scrolls instead of changing page, so the chapters and the main links are counted as events.
+// If GoatCounter is blocked or slow to load, nothing happens and nothing is shown.
+declare global { interface Window { goatcounter?: { count?: (vars: { path: string; title?: string; event?: boolean }) => void } } }
+const track = (name: string, retry = true) => {
+  try {
+    const count = window.goatcounter?.count;
+    if (typeof count === 'function') count.call(window.goatcounter, { path: name, title: name, event: true });
+    else if (retry) setTimeout(() => track(name, false), 1500); // its script loads async; give it a moment, once
+  } catch { /* blocked or broken: stay silent */ }
+};
+
+// Each chapter, the first time it is on screen: the walk's captions switch on, or in the plain layout the chapter scrolls into view.
+const seen = new Set<number>();
+const chapterSeen = (i: number) => { if (!seen.has(i)) { seen.add(i); track(`chapter-${String(i + 1).padStart(2, '0')}`); } };
+if (walk) {
+  const cards = $$('.chapter', walk);
+  const mo = new MutationObserver((records) => {
+    if (!walk.classList.contains('is-3d')) return;
+    for (const r of records) { const el = r.target as HTMLElement; if (el.classList.contains('is-on')) chapterSeen(cards.indexOf(el)); }
+  });
+  cards.forEach((c) => mo.observe(c, { attributes: true, attributeFilter: ['class'] }));
+  const io = new IntersectionObserver((entries) => {
+    if (walk.classList.contains('is-3d')) return;
+    for (const e of entries) if (e.isIntersecting) chapterSeen(cards.indexOf(e.target as HTMLElement));
+  }, { threshold: 0.5 });
+  cards.forEach((c) => io.observe(c));
+}
+
+// The few links worth knowing about.
+document.addEventListener('click', (e) => {
+  const a = (e.target as Element | null)?.closest?.('a');
+  if (!a) return;
+  const href = a.getAttribute('href') ?? '';
+  if (a.classList.contains('skip-walk')) track('click-skip-to-work');
+  else if (/\.pdf($|\?)/i.test(href)) track('click-cv');
+  else if (/^https:\/\/github\.com\/SumithSB\/?$/i.test(href)) track('click-github');
+  else if (/^https:\/\/(www\.)?linkedin\.com\//i.test(href)) track('click-linkedin');
+  else if (href.startsWith('mailto:')) track('click-email');
+});
