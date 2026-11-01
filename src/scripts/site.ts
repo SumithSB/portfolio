@@ -68,6 +68,7 @@ if (walk && canvas && webgl && !reduce) {
 
 // One owner for anchor navigation; the sticky story has its own real scroll destination.
 $$<HTMLAnchorElement>('a[href^="#"]').forEach((link) => link.addEventListener('click', (event) => {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   const id = link.getAttribute('href')!.slice(1);
   const target = document.getElementById(id);
   if (!target) return;
@@ -76,11 +77,16 @@ $$<HTMLAnchorElement>('a[href^="#"]').forEach((link) => link.addEventListener('c
   const story = id === 'story' && walk?.classList.contains('is-3d');
   const y = story ? walk!.offsetTop + (0.35 / 6) * (walk!.offsetHeight - innerHeight) : target.getBoundingClientRect().top + scrollY - (id === 'top' ? 0 : 84);
   const focus = () => {
-    const heading = story ? $('#ch-0') : target.querySelector<HTMLElement>('h2') ?? target;
-    heading?.setAttribute('tabindex', '-1'); heading?.focus({ preventScroll: true });
+    // #top contains the chapter headings, so a generic h2 search would focus the story instead of the page title.
+    const heading = id === 'story' ? $('#ch-0')
+      : id === 'top' ? target.querySelector<HTMLElement>('h1')
+      : target.querySelector<HTMLElement>(':scope > h2, :scope > .head h2');
+    const node = heading ?? target;
+    node.setAttribute('tabindex', '-1');
+    node.focus({ preventScroll: true });
   };
   if (lenis) lenis.scrollTo(y, { duration: 1, onComplete: focus });
-  else { scrollTo({ top: y, behavior: 'instant' }); focus(); }
+  else { scrollTo({ top: y, behavior: 'auto' }); focus(); }
   history.replaceState(null, '', `#${id}`);
 }));
 
