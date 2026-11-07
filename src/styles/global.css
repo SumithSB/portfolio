@@ -126,8 +126,9 @@ h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.015em; }
 .walk.is-3d.ready canvas { opacity: 1; }
 .walk.is-3d .dawn { height: 100%; transition: opacity 1.4s var(--ease); }
 .walk.is-3d.ready .dawn { opacity: 0; }
-.walk.is-3d .title { position: absolute; inset: 0; transition: opacity 0.7s var(--ease), transform 0.8s var(--ease); }
-.walk.is-3d:not(.at-start) .title { opacity: 0; transform: translateY(-18px); pointer-events: none; }
+.walk.is-3d .title { position: absolute; inset: 0; transition: opacity 0.7s var(--ease), transform 0.8s var(--ease), visibility 0s linear 0s; }
+/* Fade out, then leave the tab order. Opacity alone keeps "Walk with me" and "Explore my work" focusable. */
+.walk.is-3d:not(.at-start) .title { opacity: 0; transform: translateY(-18px); pointer-events: none; visibility: hidden; transition: opacity 0.7s var(--ease), transform 0.8s var(--ease), visibility 0s linear 0.7s; }
 .walk.is-3d .title .hint { display: block; width: 1px; height: 42px; padding: 0; font-size: 0; color: transparent; background: var(--ink-soft); transform-origin: top; animation: hint 2.4s var(--ease) infinite; }
 @keyframes hint { 0% { transform: scaleY(0); opacity: 0.2; } 45% { transform: scaleY(1); opacity: 0.7; } 100% { transform: scaleY(0); opacity: 0; } }
 
@@ -326,7 +327,8 @@ h1 em, .head h2 em { font-weight: 400; color: #516850; }
 .walk[data-era="tape"] .scene-year { color: #F3E7D4; text-shadow: 0 1px 12px #1118; }
 .skip-walk { display: none; }
 .walk.is-3d .skip-walk { display: flex; position: absolute; top: 94px; right: max(4vw, 16px); gap: 22px; align-items: center; color: #F7EBD8; font-size: 11px; text-decoration: none; padding: 9px 14px; border-radius: 999px; background: #18232EC4; border: 1px solid #FFFFFF14; }
-.walk.at-start .skip-walk { opacity: 0; pointer-events: none; }
+/* Invisible on the opening frame, so it must leave the tab order too. */
+.walk.at-start .skip-walk { opacity: 0; pointer-events: none; visibility: hidden; }
 .walk.is-3d .chapter { top: 21%; bottom: 110px; }
 .walk.is-3d .chapter article { max-width: 380px; padding: 26px 28px; gap: 16px; border: 1px solid #F0DBC021; box-shadow: 0 22px 60px #121D2420; backdrop-filter: blur(12px); }
 .walk.is-3d .chapter h2 { font-size: clamp(29px, 2.7vw, 38px); letter-spacing: -.035em; line-height: 1.08; }
