@@ -29,6 +29,8 @@ He is aware of the viewer (`src/scripts/walk/presence.ts`): when you stop he mee
 
 The scene becomes visible after the first character is built and rendered. Reduced motion, missing WebGL, a failed character worker, or context loss use the readable chapter layout. Sound is opt-in and fades out when the story or browser tab is hidden.
 
+The sun's height and direction are set per chapter so the character, trees and buildings cast shadows on the ground. Left and right arrow keys step between chapters and 1 to 6 jump to one. When nothing is happening the scene renders at about 30 frames a second.
+
 `?quality=0`, `?quality=1`, and `?quality=2` select plain rendering, bloom/grade, and ambient occlusion respectively. Mobile starts with plain rendering; desktop starts with bloom/grade and can reduce quality if frames are slow. The plain tier does not allocate postprocessing targets. The sky, character and environment are generated locally; the walk makes no external image or model requests.
 
 For visual verification, check the opening, all six chapter controls, expandable captions and the final continuation link at desktop and portrait sizes, plus keyboard navigation, reduced motion and worker failure. Hardware frame rates should be measured on physical devices rather than software WebGL.

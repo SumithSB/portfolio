@@ -1,4 +1,4 @@
-import { inView, scroll } from 'motion';
+import { scroll } from 'motion';
 import Lenis from 'lenis';
 
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -33,6 +33,13 @@ const restoreStory = () => {
 if (walk && canvas && webgl && !reduce) {
   walk.classList.add('is-3d', 'at-start');
   const hud = $('.hud', walk); if (hud) hud.hidden = false;
+  // The opening scene's character files start downloading now, alongside the 3D code, not after it.
+  if (scrollY < innerHeight) {
+    const people = (document.querySelector<HTMLLinkElement>('link[rel=icon]')?.href.replace(/favicon\.svg.*$/, '') ?? './') + 'people/';
+    const preload = (file: string, as: string) => { const l = document.createElement('link'); l.rel = 'preload'; l.as = as; l.crossOrigin = 'anonymous'; l.href = people + file; document.head.append(l); };
+    ['child1', 'walk', 'idle', 'wave', 'phone'].forEach((n) => preload(`${n}.glb`, 'fetch'));
+    ['kid_body_color', 'kid_head_color', 'cm001_body_normal', 'cm001_head_normal', 'cm001_body_rough', 'cm001_head_rough'].forEach((n) => preload(`${n}.webp`, 'image'));
+  }
   import('./walk/walk')
     .then(({ startWalk }) => startWalk({
       root: walk,
@@ -107,25 +114,39 @@ if (!reduce) {
   $$<HTMLVideoElement>('video.autoplay').forEach((v) => io.observe(v));
 }
 
-/* ---------- Things rise in as you reach them ---------- */
+/* ---------- Things rise in once, the first time you reach them ---------- */
 if (!reduce) {
-  const items = $$('[data-reveal]');
-  const buckets = new Map<Element, HTMLElement[]>();
-  items.forEach((el) => {
-    const key = el.closest('section') ?? document.body;
-    const list = buckets.get(key) ?? [];
-    list.push(el);
-    buckets.set(key, list);
-  });
-  buckets.forEach((list) => {
-    list.forEach((el, idx) => {
-      inView(el, () => {
-        // Animate the independent translate property, leaving card tilt/lift untouched.
-        el.animate([{ opacity: 0.25, translate: '0 18px' }, { opacity: 1, translate: '0 0' }], { duration: 650, delay: Math.min(idx, 3) * 55, easing: 'cubic-bezier(.16,1,.3,1)' });
-      }, { margin: '0px 0px -5% 0px' });
-    });
-  });
+  // The class is set here, not in the markup, so nothing stays hidden if this script never runs.
+  document.documentElement.classList.add('reveals');
+  const seen = new IntersectionObserver((entries) => {
+    let i = 0;
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      const el = e.target as HTMLElement;
+      el.style.setProperty('--reveal-i', String(Math.min(i++, 3)));
+      el.classList.add('in');
+      seen.unobserve(el);
+    }
+  }, { rootMargin: '0px 0px -5% 0px' });
+  $$('[data-reveal]').forEach((el) => seen.observe(el));
 }
+
+/* ---------- Header marks the section you are in ---------- */
+const navLinks = $$<HTMLAnchorElement>('.top nav a[href^="#"]');
+const spy = new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    if (!e.isIntersecting) continue;
+    const id = e.target.id === 'top' ? 'story' : e.target.id; // the walk section is #top; its nav link is #story
+    navLinks.forEach((a) => { if (a.getAttribute('href') === `#${id}`) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current'); });
+  }
+}, { rootMargin: '-50% 0px -50% 0px' });
+$$('main > section[id]').forEach((s) => spy.observe(s));
+
+/* ---------- Copy the email address ---------- */
+$$<HTMLButtonElement>('.copy-mail').forEach((b) => b.addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(b.dataset.copy!); } catch { return; }
+  b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy'; }, 1600);
+}));
 
 /* ---------- Journey spine draws itself as the track crosses the viewport ---------- */
 if (!reduce) {

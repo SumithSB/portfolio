@@ -2,79 +2,10 @@ import * as THREE from 'three';
 import { rng } from './kit';
 import { polygonize, blend, sphere, type Field } from './sculpt';
 import { SPAN } from './scenes';
+import { CELL, facadeSet, type Facade } from './facade';
 
 // Fills each chapter out to the horizon: rows of textured buildings behind the street, full tree canopies and
 // road markings, then weathers every surface so nothing reads as a flat untextured block.
-
-/* ---------- facade textures, drawn once ---------- */
-type Facade = 'plaster' | 'brick' | 'glass';
-const CELL: Record<Facade, [number, number]> = { plaster: [3.2, 3.1], brick: [2.6, 2.9], glass: [1.8, 3.6] };
-
-function facadeTextures(kind: Facade, seed: number) {
-  const W = 512, Hh = 512, cols = 4, rows = 4, cw = W / cols, ch = Hh / rows;
-  const c = document.createElement('canvas'); c.width = W; c.height = Hh;
-  const e = document.createElement('canvas'); e.width = W; e.height = Hh;
-  const x = c.getContext('2d')!, ex = e.getContext('2d')!;
-  const R = rng(seed);
-  ex.fillStyle = '#000'; ex.fillRect(0, 0, W, Hh);
-  if (kind === 'plaster') {
-    x.fillStyle = '#ECE6DA'; x.fillRect(0, 0, W, Hh);
-    for (let i = 0; i < 1800; i++) { x.fillStyle = `rgba(${90 + R() * 60},${80 + R() * 50},${60 + R() * 40},${R() * 0.06})`; x.fillRect(R() * W, R() * Hh, 2 + R() * 18, 2 + R() * 18); }
-  } else if (kind === 'brick') {
-    x.fillStyle = '#C9B8A6'; x.fillRect(0, 0, W, Hh); // mortar
-    for (let y = 0; y < Hh; y += 12) for (let bx = (y / 12) % 2 ? -14 : 0; bx < W; bx += 28) {
-      const t = 0.85 + R() * 0.3; x.fillStyle = `rgb(${Math.round(150 * t)},${Math.round(76 * t)},${Math.round(58 * t)})`; x.fillRect(bx + 1, y + 1, 26, 10);
-    }
-  } else {
-    x.fillStyle = '#5E7385'; x.fillRect(0, 0, W, Hh);
-  }
-  for (let r = 0; r < rows; r++) for (let k = 0; k < cols; k++) {
-    const ox = k * cw, oy = r * ch;
-    const lit = R() < 0.32, curtain = R() < 0.4;
-    if (kind === 'glass') {
-      const g = x.createLinearGradient(ox, oy, ox + cw, oy + ch); g.addColorStop(0, '#8FA7B8'); g.addColorStop(1, '#3E5162');
-      x.fillStyle = g; x.fillRect(ox + 4, oy + 4, cw - 8, ch - 14);
-      x.fillStyle = '#2A3540'; x.fillRect(ox, oy + ch - 10, cw, 10); // spandrel
-      if (lit) { ex.fillStyle = '#FFD9A0'; ex.fillRect(ox + 4, oy + 4, cw - 8, ch - 14); }
-      continue;
-    }
-    const wx = ox + cw * 0.26, wy = oy + ch * 0.2, ww = cw * 0.48, wh = ch * 0.56;
-    if (kind === 'brick') { x.fillStyle = '#EEE9DF'; x.fillRect(wx - 5, wy - 5, ww + 10, wh + 10); } // painted sash frame
-    else { x.fillStyle = 'rgba(0,0,0,0.12)'; x.fillRect(wx - 3, wy + wh, ww + 6, 6); } // sill shadow
-    x.fillStyle = lit ? '#E9C58A' : curtain ? '#7A6A5A' : '#2D3640'; x.fillRect(wx, wy, ww, wh);
-    x.fillStyle = kind === 'brick' ? '#EEE9DF' : '#5B4A3C';
-    x.fillRect(wx + ww / 2 - 2, wy, 4, wh); x.fillRect(wx, wy + wh / 2 - 2, ww, 4); // glazing bars
-    if (kind === 'plaster' && R() < 0.5) { x.fillStyle = ['#3E7C6A', '#2F5D7C', '#8A4B32'][Math.floor(R() * 3)]; x.fillRect(wx - 14, wy, 12, wh); x.fillRect(wx + ww + 2, wy, 12, wh); } // shutters
-    if (kind === 'plaster' && R() < 0.35) { x.fillStyle = '#4A4038'; x.fillRect(wx - 10, wy + wh + 8, ww + 20, 5); } // balcony rail
-    if (lit) { ex.fillStyle = '#FFCF8A'; ex.fillRect(wx, wy, ww, wh); }
-  }
-  // keep a plain wall texel at the corner, used for roofs and edges
-  x.fillStyle = kind === 'glass' ? '#4C5E6E' : kind === 'brick' ? '#8E4A3A' : '#E4DCCD'; x.fillRect(0, 0, 3, 3);
-  const map = new THREE.CanvasTexture(c), emit = new THREE.CanvasTexture(e);
-  for (const t of [map, emit]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; }
-  map.colorSpace = THREE.SRGBColorSpace; emit.colorSpace = THREE.SRGBColorSpace;
-  return { map, emit, cols, rows };
-}
-
-/** One material per facade style. Instanced boxes get world-scaled UVs, so windows keep their size on any building. */
-function facadeMaterial(kind: Facade, seed: number, nightMats: THREE.MeshStandardMaterial[]) {
-  const { map, emit, cols, rows } = facadeTextures(kind, seed);
-  const m = new THREE.MeshStandardMaterial({ map, emissiveMap: emit, emissive: 0xffffff, emissiveIntensity: 0.06, roughness: kind === 'glass' ? 0.25 : 0.9, metalness: kind === 'glass' ? 0.4 : 0 });
-  const [cw, chh] = CELL[kind];
-  m.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>
-      #ifdef USE_INSTANCING
-        vec3 sz = vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
-        vec2 faceSize = abs(normal.x) > 0.5 ? sz.zy : abs(normal.z) > 0.5 ? sz.xy : vec2(0.0);
-        vec2 cells = faceSize / vec2(${cw.toFixed(2)}, ${chh.toFixed(2)}) / vec2(${cols}.0, ${rows}.0);
-        vec2 u = abs(normal.y) > 0.5 ? vec2(0.002, 0.998) : uv * cells;
-        vMapUv = u; vEmissiveMapUv = u;
-      #endif`);
-  };
-  m.customProgramCacheKey = () => `facade-${kind}`;
-  nightMats.push(m);
-  return m;
-}
 
 /* ---------- trees with full, lumpy canopies ---------- */
 function canopyGeometry(seed: number) {
@@ -104,16 +35,12 @@ const PLANS: Plan[] = [
 
 export function dressWorld(scene: THREE.Scene, nightMats: THREE.MeshStandardMaterial[]) {
   const R = rng(91);
-  const facadeMat = {
-    plaster: facadeMaterial('plaster', 3, nightMats),
-    brick: facadeMaterial('brick', 5, nightMats),
-    glass: facadeMaterial('glass', 9, nightMats),
-  };
+  const facadeMat = facadeSet(nightMats);
   const unit = new THREE.BoxGeometry(1, 1, 1); unit.translate(0, 0.5, 0);
   const d = new THREE.Object3D(), col = new THREE.Color();
 
   // Buildings: rows behind the street, heights stepping up and down like a real block.
-  const lists: Record<Facade, Array<{ x: number; z: number; w: number; h: number; dd: number; tint: number }>> = { plaster: [], brick: [], glass: [] };
+  const lists: Record<Facade, Array<{ x: number; z: number; w: number; h: number; dd: number; tint: number }>> = { plaster: [], brick: [], glass: [], stone: [], concrete: [], cladding: [] };
   PLANS.forEach((p, i) => {
     const o = i * SPAN;
     p.rows.forEach((z, ri) => {

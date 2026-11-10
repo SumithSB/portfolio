@@ -11,14 +11,14 @@ import { advanceTravel } from './locomotion';
 import { makeActor, rimLight, type Actor, type ActorSpec } from './actor';
 
 // Light across one day: dawn, morning, noon, golden hour, dusk in the rain, night.
-interface Key { top: number; bottom: number; fog: number; sun: number; sunI: number; sunY: number; hemi: number; night: number; rain: number; exp: number }
+interface Key { top: number; bottom: number; fog: number; sun: number; sunI: number; sunY: number; sunZ: number; hemi: number; night: number; rain: number; exp: number }
 const KEYS: Key[] = [
-  { top: 0x8FB3C9, bottom: 0xF6CBA4, fog: 0xF3CBA6, sun: 0xFFC98A, sunI: 3.0, sunY: 5, hemi: 1.35, night: 0, rain: 0, exp: 1.05 },
-  { top: 0x9DBFD6, bottom: 0xE6E2D6, fog: 0xDCDAD2, sun: 0xFFF0D8, sunI: 2.5, sunY: 5.5, hemi: 1.25, night: 0, rain: 0, exp: 1.0 },
-  { top: 0x5E9BCF, bottom: 0xD8E7EF, fog: 0xD5E2E8, sun: 0xFFFFFF, sunI: 3.2, sunY: 6.5, hemi: 1.4, night: 0, rain: 0, exp: 1.0 },
-  { top: 0x6C7FAA, bottom: 0xF6B46E, fog: 0xEFB27A, sun: 0xFFA95A, sunI: 2.9, sunY: 2.6, hemi: 1.1, night: 0.15, rain: 0, exp: 1.05 },
-  { top: 0x2B3250, bottom: 0x857A92, fog: 0x6C6A80, sun: 0xA9B4D6, sunI: 0.9, sunY: 14, hemi: 1.0, night: 0.6, rain: 1, exp: 1.1 },
-  { top: 0x060A16, bottom: 0x1C2442, fog: 0x141A30, sun: 0x8EA2D6, sunI: 0.6, sunY: 20, hemi: 0.7, night: 1, rain: 0, exp: 1.2 },
+  { top: 0x8FB3C9, bottom: 0xF6CBA4, fog: 0xF3CBA6, sun: 0xFFC98A, sunI: 4.6, sunY: 8, sunZ: -8, hemi: 0.8, night: 0, rain: 0, exp: 1.1 },
+  { top: 0x9DBFD6, bottom: 0xE6E2D6, fog: 0xDCDAD2, sun: 0xFFF0D8, sunI: 1.9, sunY: 20, sunZ: 12, hemi: 0.6, night: 0, rain: 0, exp: 1.05 },
+  { top: 0x5E9BCF, bottom: 0xD8E7EF, fog: 0xD5E2E8, sun: 0xFFFFFF, sunI: 1.7, sunY: 34, sunZ: 10, hemi: 0.65, night: 0, rain: 0, exp: 1.05 },
+  { top: 0x6C7FAA, bottom: 0xF6B46E, fog: 0xEFB27A, sun: 0xFFA95A, sunI: 4.8, sunY: 6, sunZ: -6, hemi: 0.6, night: 0.15, rain: 0, exp: 1.1 },
+  { top: 0x2B3250, bottom: 0x857A92, fog: 0x6C6A80, sun: 0xA9B4D6, sunI: 0.9, sunY: 14, sunZ: -18, hemi: 1.0, night: 0.6, rain: 1, exp: 1.1 },
+  { top: 0x060A16, bottom: 0x1C2442, fog: 0x141A30, sun: 0x8EA2D6, sunI: 0.6, sunY: 20, sunZ: -18, hemi: 0.7, night: 1, rain: 0, exp: 1.2 },
 ];
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -142,7 +142,7 @@ export function startWalk(ui: WalkUI) {
   const hemi = new THREE.HemisphereLight(0xFFE2C2, 0x5A4636, 1.3); scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xFFC98A, 3); sun.castShadow = true;
   const sm = coarse ? 1024 : 1536; sun.shadow.mapSize.set(sm, sm);
-  Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 12, bottom: -6, far: 90 }); sun.shadow.bias = -0.0004;
+  Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, far: 130 }); sun.shadow.camera.updateProjectionMatrix(); sun.shadow.bias = -0.0004;
   scene.add(sun, sun.target);
   // A warm light that stays with him, so he is never lost in the dark chapters.
   const fill = new THREE.PointLight(0xFFD9A8, 0, 9, 2); scene.add(fill);
@@ -265,6 +265,17 @@ export function startWalk(ui: WalkUI) {
     setTimeout(focusCard, 1700);
   }));
 
+  // Left and right arrows step between chapters, and 1 to 6 jump to one.
+  ui.mapButtons.forEach((b, i) => b.setAttribute('aria-keyshortcuts', String(i + 1)));
+  addEventListener('keydown', (e) => {
+    if (stopped || !visible || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+    if (ui.root.classList.contains('reading') || (e.target as Element).closest?.('input, textarea, select, [contenteditable], video')) return;
+    const here = ui.root.classList.contains('at-start') ? -1 : Number(ui.root.dataset.chapter ?? 0);
+    const to = e.key === 'ArrowRight' ? here + 1 : e.key === 'ArrowLeft' ? here - 1 : /^[1-6]$/.test(e.key) ? Number(e.key) - 1 : NaN;
+    if (Number.isNaN(to) || to < 0 || to >= CHAPTERS) return;
+    e.preventDefault(); scrollToChapter(to);
+  });
+
   amb = createAmbience();
   document.addEventListener('visibilitychange', () => { if (document.hidden) amb?.setMix(-1); });
   ui.sound?.addEventListener('click', () => {
@@ -301,9 +312,9 @@ export function startWalk(ui: WalkUI) {
   const phoneAt = new THREE.Vector3();
   const ps: PoseState = { phase: 0, moving: 0, mode: 'walk', t: 0, time: 0, look: 0, dt: 0, signedSpeed: 0, dx: 0 };
 
-  // When nobody has scrolled or moved the pointer for a few seconds, the world keeps breathing at a third of
-  // the frame rate: the ambient life still moves, and phones keep their battery.
-  let lastActive = performance.now(), idleTick = 0;
+  // When nobody has scrolled or moved the pointer for a few seconds, the world keeps breathing at about 30
+  // frames a second: the ambient life still moves, and phones keep their battery.
+  let lastActive = performance.now();
   const wake = () => { lastActive = performance.now(); };
   addEventListener('scroll', wake, { passive: true });
   addEventListener('pointermove', wake, { passive: true });
@@ -321,8 +332,8 @@ export function startWalk(ui: WalkUI) {
     const exp = lerp(A.exp, B.exp, kt); r.toneMappingExposure = exp;
     const night = lerp(A.night, B.night, kt), rain = lerp(A.rain, B.rain, kt);
     skyU.time.value = t; skyU.night.value = night; skyU.cloud.value = 0.35 + rain * 0.6;
-    scene.environmentIntensity = lerp(0.4, 0.25, night);
-    fill.intensity = 1.1 + night * 2.2; fill.position.set(x + 1.6, 2.6, 2.6);
+    scene.environmentIntensity = lerp(0.3, 0.25, night);
+    fill.intensity = 0.7 + night * 2.6; fill.position.set(x + 1.6, 2.6, 2.6);
     world.nightMats.forEach((m) => { m.emissiveIntensity = 0.06 + night * 0.55; });
     (world.stars.material as THREE.PointsMaterial).opacity = clamp((night - 0.55) * 2.2);
     (world.rain.material as THREE.LineBasicMaterial).opacity = rain * 0.75;
@@ -331,9 +342,9 @@ export function startWalk(ui: WalkUI) {
     // his back light takes the sky's colour, and does more at night when he would otherwise sink into the dark
     rimLight.color.value.copy(skyU.top.value).lerp(sun.color, 0.4);
     rimLight.strength.value = 0.06 + night * 0.12;
-    const sunY = lerp(A.sunY, B.sunY, kt);
-    skyU.sunDir.value.set(30, sunY, -18).normalize();
-    sun.position.set(x + 30, sunY, -18); sun.target.position.set(x + 4, 0, 0);
+    const sunY = lerp(A.sunY, B.sunY, kt), sunZ = lerp(A.sunZ, B.sunZ, kt);
+    skyU.sunDir.value.set(30, sunY, sunZ).normalize();
+    sun.position.set(x + 30, sunY, sunZ); sun.target.position.set(x + 4, 0, 0);
     return { f, exp, night, warmth: clamp(1 - Math.abs(f - 3) / 1.5) };
   };
 
@@ -363,7 +374,7 @@ export function startWalk(ui: WalkUI) {
     requestAnimationFrame(frame);
     if (!visible || document.hidden) { last = now; return; }
     const idling = now - lastActive > 4500 && Math.abs(targetWalk(progressAt()) - w) < 0.001 && cutT < 0 && (endT === 0 || endT > 4);
-    if (idling && ++idleTick % 3 !== 0) return;
+    if (idling && now - last < 30) return;
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
     const t = now / 1000;
     fit();
