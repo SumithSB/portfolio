@@ -11,12 +11,12 @@ const temporary = await mkdtemp(join(tmpdir(), 'portfolio-rig-'));
 const output = join(temporary, 'rig.mjs');
 await build({
   stdin: {
-    contents: `export { sculptStage } from './src/scripts/walk/figure'; export { makePerson, pose } from './src/scripts/walk/person'; export { advanceRoot, advanceGait, advanceTravel } from './src/scripts/walk/locomotion'; export * as THREE from 'three';`,
+    contents: `export { sculptStage } from './src/scripts/walk/figure'; export { makePerson, pose } from './src/scripts/walk/person'; export { advanceRoot, advanceGait, advanceTravel } from './src/scripts/walk/locomotion'; export { weigh } from './src/scripts/walk/sculpt'; export * as THREE from 'three';`,
     resolveDir: root,
   },
   bundle: true, platform: 'node', format: 'esm', outfile: output,
 });
-const { advanceRoot, advanceGait, advanceTravel, sculptStage, makePerson, pose, THREE } = await import(pathToFileURL(output).href);
+const { advanceRoot, advanceGait, advanceTravel, sculptStage, makePerson, pose, weigh, THREE } = await import(pathToFileURL(output).href);
 await rm(temporary, { recursive: true });
 
 test('root motion stays within walking speed in either direction and never overshoots', () => {
@@ -86,4 +86,36 @@ test('travel reverses with continuous velocity and settles at a new target', () 
     state = next;
   }
   assert(Math.abs(state.position + 2) < 0.001);
+});
+
+test('skin weights stay finite, sum to one, and keep the four nearest bones', () => {
+  // The nearest bone is listed last, so insertion order cannot pass this.
+  const segs = [
+    { bone: 15, a: [8, 0, 0], b: [8, 1, 0] },
+    { bone: 14, a: [4, 0, 0], b: [4, 1, 0] },
+    { bone: 13, a: [3, 0, 0], b: [3, 1, 0] },
+    { bone: 12, a: [2, 0, 0], b: [2, 1, 0] },
+    { bone: 11, a: [0, 1, 0], b: [0, 2, 0] },
+    { bone: 10, a: [0, 0, 0], b: [0, 1, 0] },
+  ];
+  const onBone = weigh(0, 0.5, 0, segs, 0.02);
+  assert.deepEqual(onBone.i, [10, 11, 12, 13]);
+  assert.equal(onBone.w.length, 4);
+  for (let k = 0; k < 4; k++) {
+    assert(Number.isFinite(onBone.w[k]) && onBone.w[k] >= 0);
+    if (k > 0) assert(onBone.w[k] <= onBone.w[k - 1]);
+  }
+  assert(Math.abs(onBone.w.reduce((sum, value) => sum + value, 0) - 1) < 1e-9);
+  assert(onBone.w[0] > 0.9);
+  assert(!onBone.i.includes(14) && !onBone.i.includes(15));
+
+  const alone = weigh(0, 0.5, 0, [segs[5]], 0.02);
+  assert.deepEqual(alone.i, [10, 0, 0, 0]);
+  assert(Math.abs(alone.w[0] - 1) < 1e-9);
+  assert.equal(alone.w[1] + alone.w[2] + alone.w[3], 0);
+
+  // Two segments of one bone keep a single influence, using the closer segment.
+  const shared = weigh(0, 0.5, 0, [...segs, { bone: 10, a: [0, 0, 0], b: [0, 0.2, 0] }], 0.02);
+  assert.equal(shared.i.filter((bone) => bone === 10).length, 1);
+  assert(Math.abs(shared.w.reduce((sum, value) => sum + value, 0) - 1) < 1e-9);
 });
