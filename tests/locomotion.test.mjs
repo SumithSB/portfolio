@@ -11,12 +11,12 @@ const temporary = await mkdtemp(join(tmpdir(), 'portfolio-rig-'));
 const output = join(temporary, 'rig.mjs');
 await build({
   stdin: {
-    contents: `export { sculptStage } from './src/scripts/walk/figure'; export { makePerson, pose } from './src/scripts/walk/person'; export { advanceRoot, advanceGait, advanceTravel } from './src/scripts/walk/locomotion'; export { weigh } from './src/scripts/walk/sculpt'; export * as THREE from 'three';`,
+    contents: `export { sculptStage } from './src/scripts/walk/figure'; export { makePerson, pose } from './src/scripts/walk/person'; export { advanceRoot, advanceGait, advanceTravel } from './src/scripts/walk/locomotion'; export { weigh } from './src/scripts/walk/sculpt'; export { dims, LOOKS, HEAD_R } from './src/scripts/walk/looks'; export * as THREE from 'three';`,
     resolveDir: root,
   },
   bundle: true, platform: 'node', format: 'esm', outfile: output,
 });
-const { advanceRoot, advanceGait, advanceTravel, sculptStage, makePerson, pose, weigh, THREE } = await import(pathToFileURL(output).href);
+const { advanceRoot, advanceGait, advanceTravel, sculptStage, makePerson, pose, weigh, dims, LOOKS, HEAD_R, THREE } = await import(pathToFileURL(output).href);
 await rm(temporary, { recursive: true });
 
 test('root motion stays within walking speed in either direction and never overshoots', () => {
@@ -118,4 +118,30 @@ test('skin weights stay finite, sum to one, and keep the four nearest bones', ()
   const shared = weigh(0, 0.5, 0, [...segs, { bone: 10, a: [0, 0, 0], b: [0, 0.2, 0] }], 0.02);
   assert.equal(shared.i.filter((bone) => bone === 10).length, 1);
   assert(Math.abs(shared.w.reduce((sum, value) => sum + value, 0) - 1) < 1e-9);
+});
+
+test('every age keeps a standing skeleton the sculpt and the rig can share', () => {
+  // A new look without a matching head radius would sculpt NaNs. Both tables drive dims.
+  assert.equal(LOOKS.length, HEAD_R.length);
+  assert(LOOKS.length >= 2);
+  let previousHeight = 0;
+  for (let stage = 0; stage < LOOKS.length; stage++) {
+    const d = dims(stage);
+    assert.equal(d.H, LOOKS[stage].H);
+    assert.equal(d.r, HEAD_R[stage]);
+    assert.equal(d.b, LOOKS[stage].build);
+    assert.equal(d.S, LOOKS[stage].shoulder);
+    assert(d.H >= previousHeight, `height shrank at stage ${stage}`);
+    previousHeight = d.H;
+    // Feet clear the ground, and each joint sits above the one it bends.
+    assert(d.ankleY > 0 && d.ankleY < d.kneeY && d.kneeY < d.hipY);
+    assert(d.hipY < d.shJY && d.shJY < d.shY && d.shY < d.headY && d.headY < d.H);
+    assert(d.wristY > d.ankleY && d.wristY < d.elbowY && d.elbowY < d.shJY);
+    // Arms hang out past the hips, further at the wrist than at the elbow.
+    assert(d.shZ > d.zL && d.elbowOut > 0 && d.wristOut > d.elbowOut);
+    for (const value of [d.legLen, d.torsoLen, d.armR]) assert(Number.isFinite(value) && value > 0);
+  }
+  // Only the youngest stage uses the shorter leg fraction.
+  const child = dims(0).legLen / dims(0).H;
+  for (let stage = 1; stage < LOOKS.length; stage++) assert(dims(stage).legLen / dims(stage).H > child);
 });
